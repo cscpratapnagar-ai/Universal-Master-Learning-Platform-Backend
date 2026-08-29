@@ -5,6 +5,7 @@ import com.masterlearning.platform.modules.identity.dto.response.PermissionRespo
 import com.masterlearning.platform.modules.identity.dto.response.RoleResponse;
 import com.masterlearning.platform.modules.identity.service.PermissionService;
 import com.masterlearning.platform.modules.identity.service.RoleService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,6 +28,7 @@ public class IdentityController {
     }
 
     @GetMapping("/roles")
+    @PreAuthorize("hasAuthority('SYSTEM:READ')")
     public ApiResponse<List<RoleResponse>> getRoles() {
         return ApiResponse.success(
                 "Roles retrieved successfully",
@@ -35,6 +37,7 @@ public class IdentityController {
     }
 
     @GetMapping("/permissions")
+    @PreAuthorize("hasAuthority('SYSTEM:READ')")
     public ApiResponse<List<PermissionResponse>> getPermissions() {
         return ApiResponse.success(
                 "Permissions retrieved successfully",

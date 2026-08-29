@@ -1,5 +1,9 @@
 package com.masterlearning.platform.security.filter;
 
+import com.masterlearning.platform.modules.user.entity.User;
+import com.masterlearning.platform.modules.user.repository.UserRepository;
+import com.masterlearning.platform.security.authority.AuthorityService;
+import com.masterlearning.platform.security.authority.CurrentUserPrincipal;
 import com.masterlearning.platform.security.jwt.JwtService;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -19,9 +23,17 @@ import java.util.UUID;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
+    private final AuthorityService authorityService;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(
+            JwtService jwtService,
+            UserRepository userRepository,
+            AuthorityService authorityService
+    ) {
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
+        this.authorityService = authorityService;
     }
 
     @Override
@@ -38,24 +50,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        String token = header.substring(7);
-
         try {
+            String token = header.substring(7);
             UUID userId = jwtService.extractUserId(token);
 
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userId,
-                                null,
-                                java.util.List.of()
-                        );
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource()
-                                .buildDetails(request)
-                );
-                SecurityContextHolder.getContext()
-                        .setAuthentication(authentication);
+                User user = userRepository.findById(userId).orElse(null);
+
+                if (user != null && user.isEnabled()) {
+                    CurrentUserPrincipal principal =
+                            new CurrentUserPrincipal(user.getId(), user.getEmail());
+
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(
+                                    principal,
+                                    null,
+                                    authorityService.resolve(user)
+                            );
+
+                    authentication.setDetails(
+                            new WebAuthenticationDetailsSource()
+                                    .buildDetails(request)
+                    );
+
+                    SecurityContextHolder.getContext()
+                            .setAuthentication(authentication);
+                }
             }
         } catch (JwtException | IllegalArgumentException ignored) {
             SecurityContextHolder.clearContext();
