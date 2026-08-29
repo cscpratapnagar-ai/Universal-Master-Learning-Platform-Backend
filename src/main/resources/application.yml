@@ -10,21 +10,25 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-
 server:
   port: 8080
-
 management:
   endpoints:
     web:
       exposure:
         include: health,info
-
 app:
   api:
     version: v1
   security:
     bcrypt-strength: 12
+    jwt:
+      secret: ${JWT_SECRET:change-this-development-secret-to-a-minimum-32-character-value}
+      access-token-minutes: 15
+      refresh-token-days: 30
+    login:
+      max-attempts: 5
+      lock-minutes: 15
     cors:
       allowed-origins:
         - http://localhost:4200

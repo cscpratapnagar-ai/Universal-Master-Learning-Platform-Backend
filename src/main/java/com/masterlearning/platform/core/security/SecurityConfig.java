@@ -1,34 +1,7 @@
 package com.masterlearning.platform.core.security;
-
-import org.springframework.context.annotation.*;
-import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.SecurityFilterChain;
-
-@Configuration
-@EnableWebSecurity
-@EnableConfigurationProperties(SecurityProperties.class)
+import org.springframework.context.annotation.*; import org.springframework.security.config.annotation.web.builders.HttpSecurity; import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity; import org.springframework.security.config.http.SessionCreationPolicy; import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder; import org.springframework.security.crypto.password.PasswordEncoder; import org.springframework.security.web.*; import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+@Configuration @EnableWebSecurity @EnableConfigurationProperties(SecurityProperties.class)
 public class SecurityConfig {
-    @Bean
-    PasswordEncoder passwordEncoder(SecurityProperties properties) {
-        return new BCryptPasswordEncoder(properties.bcryptStrength());
-    }
-
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/health", "/actuator/health", "/error").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll()
-                .anyRequest().authenticated())
-            .httpBasic(Customizer.withDefaults())
-            .build();
-    }
+ @Bean PasswordEncoder passwordEncoder(SecurityProperties p){return new BCryptPasswordEncoder(p.bcryptStrength());}
+ @Bean SecurityFilterChain chain(HttpSecurity h,JwtAuthenticationFilter jwt)throws Exception{return h.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)).authorizeHttpRequests(a->a.requestMatchers("/api/v1/health","/actuator/health","/error","/api/v1/auth/**").permitAll().anyRequest().authenticated()).addFilterBefore(jwt,UsernamePasswordAuthenticationFilter.class).build();}
 }
