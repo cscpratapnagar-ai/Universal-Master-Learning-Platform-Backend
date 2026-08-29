@@ -20,16 +20,16 @@ public class JwtService {
 
     public JwtService(SecurityProperties properties) {
         this.properties = properties;
-        this.signingKey = Keys.hmacShaKeyFor(
-                properties.jwt().secret().getBytes(StandardCharsets.UTF_8)
-        );
+        String secret = properties.jwt().secret();
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("app.security.jwt.secret must be at least 32 UTF-8 bytes");
+        }
+        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String generateAccessToken(UUID userId, String email) {
         Instant now = Instant.now();
-        Instant expiresAt = now.plusSeconds(
-                properties.jwt().accessTokenMinutes() * 60L
-        );
+        Instant expiresAt = now.plusSeconds(properties.jwt().accessTokenMinutes() * 60L);
 
         return Jwts.builder()
                 .issuer(properties.jwt().issuer())
