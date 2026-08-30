@@ -125,12 +125,17 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void resetPassword(ResetPasswordRequest request) {
-        PasswordResetToken token = passwordResetTokenRepository.findByTokenHash(hash(request.token()))
+        String tokenHash = hash(request.token());
+        PasswordResetToken token = passwordResetTokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new UnauthorizedException("Invalid or expired password reset token"));
-        if (!token.isUsable()) throw new UnauthorizedException("Invalid or expired password reset token");
+
+        int consumed = passwordResetTokenRepository.markUsedIfUsable(tokenHash, Instant.now());
+        if (consumed != 1) {
+            throw new UnauthorizedException("Invalid or expired password reset token");
+        }
+
         User user = token.getUser();
         user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
-        token.markUsed();
         refreshTokenRepository.deleteByUser_Id(user.getId());
     }
 
