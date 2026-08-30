@@ -1,8 +1,14 @@
 spring:
   main:
     banner-mode: console
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/master_learning}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:MySuperSecureJWTSecretKeyForMasterLearningPlatform2026!ChangeMe}
