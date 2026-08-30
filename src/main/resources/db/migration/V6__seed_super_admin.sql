@@ -1,5 +1,6 @@
 -- Development-only bootstrap account for the internal platform portal.
--- Password: ChangeMe123! (BCrypt hash). Rotate/remove this account for production.
+-- Password: password
+-- IMPORTANT: rotate/remove this bootstrap credential before production deployment.
 
 INSERT INTO users (
     id, email, password_hash, first_name, last_name, enabled,
@@ -7,7 +8,7 @@ INSERT INTO users (
 ) VALUES (
     '20000000-0000-0000-0000-000000000001',
     'superadmin@masterlearning.local',
-    '$2a$10$zK1VjK9k1WkEMZPqYQe6KeY9Jz5d8w6hLQwRr1Pp6sP5R9mX7w6lO',
+    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
     'Platform',
     'Super Admin',
     TRUE,
