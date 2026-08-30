@@ -129,7 +129,7 @@ public class AuthServiceImpl implements AuthService {
         User user = token.getUser();
         user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
         token.markUsed();
-        refreshTokenRepository.deleteAll();
+        refreshTokenRepository.deleteByUser_Id(user.getId());
     }
 
     private AuthResponse issueTokens(User user) {
