@@ -9,7 +9,6 @@ import com.masterlearning.platform.modules.auth.dto.request.RegisterRequest;
 import com.masterlearning.platform.modules.auth.dto.response.AuthResponse;
 import com.masterlearning.platform.modules.auth.entity.RefreshToken;
 import com.masterlearning.platform.modules.auth.repository.RefreshTokenRepository;
-import com.masterlearning.platform.modules.identity.entity.Role;
 import com.masterlearning.platform.modules.identity.repository.RoleRepository;
 import com.masterlearning.platform.modules.user.entity.User;
 import com.masterlearning.platform.modules.user.mapper.UserMapper;
@@ -72,8 +71,7 @@ public class AuthServiceImpl implements AuthService {
         );
 
         roleRepository.findByCode("LEARNER").ifPresent(user::assignRole);
-        User savedUser = userRepository.save(user);
-        return issueTokens(savedUser);
+        return issueTokens(userRepository.save(user));
     }
 
     @Override
@@ -112,11 +110,10 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getEmail());
         String refreshToken = UUID.randomUUID() + "-" + UUID.randomUUID();
 
-        int refreshDays = 30;
         RefreshToken storedToken = new RefreshToken(
                 hash(refreshToken),
                 user,
-                Instant.now().plusSeconds(refreshDays * 24L * 60L * 60L)
+                Instant.now().plusSeconds(30L * 24L * 60L * 60L)
         );
         refreshTokenRepository.save(storedToken);
 
