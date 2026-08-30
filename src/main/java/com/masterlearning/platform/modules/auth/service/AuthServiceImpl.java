@@ -94,14 +94,16 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse refresh(RefreshTokenRequest request) {
-        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(hash(request.refreshToken()))
+        String tokenHash = hash(request.refreshToken());
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
 
-        if (!storedToken.isActive()) {
+        Instant now = Instant.now();
+        int revoked = refreshTokenRepository.revokeIfActive(tokenHash, now, now);
+        if (revoked != 1) {
             throw new UnauthorizedException("Refresh token is expired or revoked");
         }
 
-        storedToken.revoke();
         return issueTokens(storedToken.getUser());
     }
 
