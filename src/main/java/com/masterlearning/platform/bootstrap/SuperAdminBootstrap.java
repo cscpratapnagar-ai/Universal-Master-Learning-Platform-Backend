@@ -7,7 +7,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
 public class SuperAdminBootstrap {
@@ -19,33 +20,29 @@ public class SuperAdminBootstrap {
     ApplicationRunner superAdminBootstrapRunner(
             UserRepository userRepository,
             RoleRepository roleRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            PlatformTransactionManager transactionManager
     ) {
-        return args -> bootstrap(userRepository, roleRepository, passwordEncoder);
-    }
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 
-    @Transactional
-    void bootstrap(
-            UserRepository userRepository,
-            RoleRepository roleRepository,
-            PasswordEncoder passwordEncoder
-    ) {
-        User user = userRepository.findByEmailIgnoreCase(EMAIL)
-                .orElseGet(() -> new User(
-                        EMAIL,
-                        passwordEncoder.encode(PASSWORD),
-                        "Super",
-                        "Admin"
-                ));
+        return args -> transactionTemplate.executeWithoutResult(status -> {
+            User user = userRepository.findByEmailIgnoreCase(EMAIL)
+                    .orElseGet(() -> new User(
+                            EMAIL,
+                            passwordEncoder.encode(PASSWORD),
+                            "Super",
+                            "Admin"
+                    ));
 
-        if (!passwordEncoder.matches(PASSWORD, user.getPasswordHash())) {
-            user.updatePasswordHash(passwordEncoder.encode(PASSWORD));
-        }
-        user.enable();
+            if (!passwordEncoder.matches(PASSWORD, user.getPasswordHash())) {
+                user.updatePasswordHash(passwordEncoder.encode(PASSWORD));
+            }
+            user.enable();
 
-        roleRepository.findByCode("SUPER_ADMIN")
-                .ifPresent(user::assignRole);
+            roleRepository.findByCode("SUPER_ADMIN")
+                    .ifPresent(user::assignRole);
 
-        userRepository.save(user);
+            userRepository.save(user);
+        });
     }
 }
