@@ -1,0 +1,26 @@
+[33mcommit 99ec46a01f4efcdc4b0b3f9bcb6c7deb6674e57c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: vishalcsc0410 <cscpratapnagar@gmail.com>
+Date:   Sun Aug 30 07:30:08 2026 +0530
+
+    chore(config): update local database and JWT configuration
+
+[1mdiff --git a/src/main/resources/application-local.yml b/src/main/resources/application-local.yml[m
+[1mindex 5a8f3b8..0587544 100644[m
+[1m--- a/src/main/resources/application-local.yml[m
+[1m+++ b/src/main/resources/application-local.yml[m
+[36m@@ -1,8 +1,14 @@[m
+ spring:[m
+   main:[m
+     banner-mode: console[m
+[32m+[m
+   datasource:[m
+     url: ${DB_URL:jdbc:postgresql://localhost:5432/master_learning}[m
+     username: ${DB_USERNAME:postgres}[m
+     password: ${DB_PASSWORD:postgres}[m
+     driver-class-name: org.postgresql.Driver[m
+[32m+[m
+[32m+[m[32mapp:[m
+[32m+[m[32m  security:[m
+[32m+[m[32m    jwt:[m
+[32m+[m[32m      secret: ${JWT_SECRET:MySuperSecureJWTSecretKeyForMasterLearningPlatform2026!ChangeMe}[m
+\ No newline at end of file[m
