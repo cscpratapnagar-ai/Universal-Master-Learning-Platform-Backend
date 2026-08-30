@@ -25,4 +25,6 @@ public class User extends BaseEntity {
     public UUID getId(){return id;} public String getEmail(){return email;} public String getPasswordHash(){return passwordHash;}
     public String getFirstName(){return firstName;} public String getLastName(){return lastName;} public boolean isEnabled(){return enabled;}
     public Set<Role> getRoles(){return Set.copyOf(roles);} public void assignRole(Role role){roles.add(role);}
+    public void updatePasswordHash(String passwordHash){ this.passwordHash = passwordHash; }
+    public void enable(){ this.enabled = true; }
 }
