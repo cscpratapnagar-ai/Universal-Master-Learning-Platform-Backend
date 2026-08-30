@@ -2,13 +2,15 @@ package com.masterlearning.platform.modules.auth.service;
 
 import com.masterlearning.platform.common.exception.ConflictException;
 import com.masterlearning.platform.common.exception.UnauthorizedException;
-import com.masterlearning.platform.modules.auth.dto.request.LoginRequest;
+import com.masterlearning.platform.modules.auth.dto.request.*;
 import com.masterlearning.platform.modules.auth.dto.request.LogoutRequest;
 import com.masterlearning.platform.modules.auth.dto.request.RefreshTokenRequest;
 import com.masterlearning.platform.modules.auth.dto.request.RegisterRequest;
 import com.masterlearning.platform.modules.auth.dto.response.AuthResponse;
 import com.masterlearning.platform.modules.auth.entity.RefreshToken;
 import com.masterlearning.platform.modules.auth.repository.RefreshTokenRepository;
+import com.masterlearning.platform.modules.auth.repository.PasswordResetTokenRepository;
+import com.masterlearning.platform.modules.auth.entity.PasswordResetToken;
 import com.masterlearning.platform.modules.identity.repository.RoleRepository;
 import com.masterlearning.platform.modules.user.entity.User;
 import com.masterlearning.platform.modules.user.mapper.UserMapper;
@@ -33,6 +35,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final UserMapper userMapper;
@@ -42,6 +45,7 @@ public class AuthServiceImpl implements AuthService {
             UserRepository userRepository,
             RoleRepository roleRepository,
             RefreshTokenRepository refreshTokenRepository,
+            PasswordResetTokenRepository passwordResetTokenRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             UserMapper userMapper,
@@ -50,6 +54,7 @@ public class AuthServiceImpl implements AuthService {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.userMapper = userMapper;
@@ -104,6 +109,27 @@ public class AuthServiceImpl implements AuthService {
     public void logout(LogoutRequest request) {
         refreshTokenRepository.findByTokenHash(hash(request.refreshToken()))
                 .ifPresent(RefreshToken::revoke);
+    }
+
+    @Override
+    public void forgotPassword(ForgotPasswordRequest request) {
+        userRepository.findByEmailIgnoreCase(request.email().trim().toLowerCase()).ifPresent(user -> {
+            passwordResetTokenRepository.deleteByUser_Id(user.getId());
+            String rawToken = UUID.randomUUID() + "-" + UUID.randomUUID();
+            passwordResetTokenRepository.save(new PasswordResetToken(hash(rawToken), user, Instant.now().plusSeconds(15 * 60)));
+            // TODO: Email provider will deliver the raw token. Never persist or log it in production.
+        });
+    }
+
+    @Override
+    public void resetPassword(ResetPasswordRequest request) {
+        PasswordResetToken token = passwordResetTokenRepository.findByTokenHash(hash(request.token()))
+                .orElseThrow(() -> new UnauthorizedException("Invalid or expired password reset token"));
+        if (!token.isUsable()) throw new UnauthorizedException("Invalid or expired password reset token");
+        User user = token.getUser();
+        user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
+        token.markUsed();
+        refreshTokenRepository.deleteAll();
     }
 
     private AuthResponse issueTokens(User user) {
