@@ -54,6 +54,18 @@ public class AuthController {
         return ApiResponse.success("Logout successful", null);
     }
 
+    @PostMapping("/forgot-password")
+    public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        auth.forgotPassword(request);
+        return ApiResponse.success("If an account exists for this email, password reset instructions have been created.", null);
+    }
+
+    @PostMapping("/reset-password")
+    public ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        auth.resetPassword(request);
+        return ApiResponse.success("Password reset successful. Please sign in with your new password.", null);
+    }
+
     @GetMapping("/me")
     public ApiResponse<UserResponse> me(
             @AuthenticationPrincipal CurrentUserPrincipal principal
