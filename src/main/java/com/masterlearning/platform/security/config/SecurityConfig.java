@@ -1,19 +1,32 @@
 package com.masterlearning.platform.security.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.masterlearning.platform.common.api.ApiErrorResponse;
+import com.masterlearning.platform.common.exception.ErrorCode;
+import com.masterlearning.platform.modules.user.entity.User;
+import com.masterlearning.platform.modules.user.mapper.UserMapper;
+import com.masterlearning.platform.modules.user.repository.UserRepository;
+import com.masterlearning.platform.security.authority.CurrentUserPrincipal;
 import com.masterlearning.platform.security.filter.JwtAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import java.io.IOException;
+import java.util.Map;
 
 @Configuration
 @EnableWebSecurity
@@ -29,7 +42,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            JwtAuthenticationFilter jwtAuthenticationFilter
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            ObjectMapper objectMapper,
+            UserRepository userRepository,
+            UserMapper userMapper
     ) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
@@ -38,19 +54,35 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, exception) ->
-                                response.sendError(401, "Authentication is required"))
+                                writeSecurityError(
+                                        response,
+                                        objectMapper,
+                                        HttpServletResponse.SC_UNAUTHORIZED,
+                                        ErrorCode.UNAUTHORIZED,
+                                        "Authentication is required"
+                                ))
                         .accessDeniedHandler((request, response, exception) ->
-                                response.sendError(403, "You do not have permission to access this resource")))
+                                writeSecurityError(
+                                        response,
+                                        objectMapper,
+                                        HttpServletResponse.SC_FORBIDDEN,
+                                        ErrorCode.FORBIDDEN,
+                                        "You do not have permission to access this resource"
+                                )))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
-                                "/api/v1/auth/**",
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout",
                                 "/api/v1/public/**",
                                 "/api/v1/health",
                                 "/actuator/health",
                                 "/actuator/info",
                                 "/error"
                         ).permitAll()
+                        .requestMatchers("/api/v1/auth/me").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
@@ -58,5 +90,20 @@ public class SecurityConfig {
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .build();
+    }
+
+    private void writeSecurityError(
+            HttpServletResponse response,
+            ObjectMapper objectMapper,
+            int status,
+            ErrorCode code,
+            String message
+    ) throws IOException {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        objectMapper.writeValue(
+                response.getOutputStream(),
+                ApiErrorResponse.of(code.name(), message, Map.of())
+        );
     }
 }
