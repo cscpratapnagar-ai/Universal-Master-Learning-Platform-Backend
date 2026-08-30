@@ -48,7 +48,6 @@ public class AuthorizationService {
     }
 
     public boolean canAccessUser(UUID userId) {
-        return isCurrentUser(userId)
-                || hasAnyAuthority("ROLE_SUPER_ADMIN", "ROLE_PLATFORM_ADMIN", "USER_READ_ALL");
+        return isCurrentUser(userId);
     }
 }
