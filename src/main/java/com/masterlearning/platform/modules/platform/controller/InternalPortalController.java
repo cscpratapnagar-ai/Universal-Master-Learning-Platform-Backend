@@ -34,7 +34,9 @@ public class InternalPortalController {
                 "universal-master-learning-platform-backend",
                 Instant.now(),
                 userRepository.count(),
-                organizationRepository.count()
+                userRepository.countByEnabledTrue(),
+                organizationRepository.count(),
+                organizationRepository.countByActiveTrue()
         );
 
         return ApiResponse.success("Internal portal overview loaded", overview);
