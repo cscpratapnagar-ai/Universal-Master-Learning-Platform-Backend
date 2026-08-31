@@ -37,14 +37,26 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Transactional(Transactional.TxType.REQUIRED)
     public List<UserResponse> getAll(String query, Boolean enabled) {
         String normalized = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
-        return users.findAll().stream()
+
+        return users.findAllBy().stream()
                 .filter(user -> enabled == null || user.isEnabled() == enabled)
-                .filter(user -> normalized.isBlank()
-                        || user.getEmail().toLowerCase(Locale.ROOT).contains(normalized)
-                        || user.getFirstName().toLowerCase(Locale.ROOT).contains(normalized)
-                        || (user.getLastName() != null && user.getLastName().toLowerCase(Locale.ROOT).contains(normalized)))
+                .filter(user -> matchesQuery(user, normalized))
                 .map(mapper::toResponse)
                 .toList();
+    }
+
+    private boolean matchesQuery(User user, String normalized) {
+        if (normalized.isBlank()) {
+            return true;
+        }
+
+        return containsIgnoreCase(user.getEmail(), normalized)
+                || containsIgnoreCase(user.getFirstName(), normalized)
+                || containsIgnoreCase(user.getLastName(), normalized);
+    }
+
+    private boolean containsIgnoreCase(String value, String normalized) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(normalized);
     }
 
     @Override
