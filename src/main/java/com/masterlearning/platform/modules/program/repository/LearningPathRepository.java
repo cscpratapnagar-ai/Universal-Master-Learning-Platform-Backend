@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.program.repository; import com.masterlearning.platform.modules.program.entity.LearningPath; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface LearningPathRepository extends JpaRepository<LearningPath,UUID>{}
