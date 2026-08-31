@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.program.dto.request; import jakarta.validation.constraints.*; import java.util.UUID; public record AddCourseToPathRequest(@NotNull UUID courseId,@Min(0) int sortOrder) {}
