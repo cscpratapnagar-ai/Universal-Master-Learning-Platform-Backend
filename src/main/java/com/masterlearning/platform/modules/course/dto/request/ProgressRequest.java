@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.course.dto.request; import jakarta.validation.constraints.*; public record ProgressRequest(@Min(0) @Max(100) int progressPercent) {}
