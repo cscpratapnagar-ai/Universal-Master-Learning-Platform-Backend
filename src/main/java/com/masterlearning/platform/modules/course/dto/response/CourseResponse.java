@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.course.dto.response; import java.util.UUID; public record CourseResponse(UUID id,String title,String slug,String description,String status,UUID organizationId) {}
