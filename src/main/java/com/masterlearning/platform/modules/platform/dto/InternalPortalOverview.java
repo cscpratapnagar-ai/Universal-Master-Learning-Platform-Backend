@@ -7,5 +7,7 @@ public record InternalPortalOverview(
         String service,
         Instant timestamp,
         long totalUsers,
-        long totalOrganizations
+        long activeUsers,
+        long totalOrganizations,
+        long activeOrganizations
 ) {}
