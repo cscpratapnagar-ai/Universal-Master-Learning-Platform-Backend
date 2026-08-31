@@ -10,8 +10,8 @@ import com.masterlearning.platform.modules.user.entity.User;
 import com.masterlearning.platform.modules.user.mapper.UserMapper;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.modules.user.service.UserManagementService;
-import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
@@ -34,11 +34,11 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
-    @Transactional(Transactional.TxType.REQUIRED)
+    @Transactional(readOnly = true)
     public List<UserResponse> getAll(String query, Boolean enabled) {
         String normalized = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
 
-        return users.findAllBy().stream()
+        return users.findAllWithRoles().stream()
                 .filter(user -> enabled == null || user.isEnabled() == enabled)
                 .filter(user -> matchesQuery(user, normalized))
                 .map(mapper::toResponse)
@@ -60,7 +60,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
-    @Transactional(Transactional.TxType.REQUIRED)
+    @Transactional(readOnly = true)
     public UserResponse getById(UUID id) {
         return mapper.toResponse(loadUser(id));
     }
