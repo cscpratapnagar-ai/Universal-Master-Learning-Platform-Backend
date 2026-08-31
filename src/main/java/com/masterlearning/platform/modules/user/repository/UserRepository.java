@@ -35,4 +35,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByEmailIgnoreCase(String email);
 
     long countByEnabledTrue();
+
+    @Query("""
+            select r.code, count(distinct u)
+            from User u
+            join u.roles r
+            group by r.code
+            order by r.code
+            """)
+    List<Object[]> countUsersByRole();
 }
