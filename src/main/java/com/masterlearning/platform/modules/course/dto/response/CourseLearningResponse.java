@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.course.dto.response; import java.util.*; public record CourseLearningResponse(UUID courseId,String title,String description,int progressPercent,List<ModuleResponse> modules) {}
