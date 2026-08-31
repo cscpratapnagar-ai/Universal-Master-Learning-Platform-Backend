@@ -3,10 +3,6 @@ package com.masterlearning.platform.security.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.masterlearning.platform.common.api.ApiErrorResponse;
 import com.masterlearning.platform.common.exception.ErrorCode;
-import com.masterlearning.platform.modules.user.entity.User;
-import com.masterlearning.platform.modules.user.mapper.UserMapper;
-import com.masterlearning.platform.modules.user.repository.UserRepository;
-import com.masterlearning.platform.security.authority.CurrentUserPrincipal;
 import com.masterlearning.platform.security.filter.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -19,7 +15,6 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -43,9 +38,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
-            ObjectMapper objectMapper,
-            UserRepository userRepository,
-            UserMapper userMapper
+            ObjectMapper objectMapper
     ) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
