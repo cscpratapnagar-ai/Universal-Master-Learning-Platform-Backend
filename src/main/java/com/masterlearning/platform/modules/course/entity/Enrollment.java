@@ -6,5 +6,5 @@ import com.masterlearning.platform.common.entity.BaseEntity; import com.masterle
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="user_id",nullable=false) private User user;
  @Column(nullable=false) private int progressPercent=0; private Instant completedAt;
  protected Enrollment(){} public Enrollment(Course c,User u){course=c;user=u;}
- public UUID getId(){return id;} public int getProgressPercent(){return progressPercent;} public void updateProgress(int p){progressPercent=Math.max(0,Math.min(100,p));if(progressPercent==100)completedAt=Instant.now();}
+ public UUID getId(){return id;} public Course getCourse(){return course;} public User getUser(){return user;} public int getProgressPercent(){return progressPercent;} public void updateProgress(int p){progressPercent=Math.max(0,Math.min(100,p));if(progressPercent==100)completedAt=Instant.now();}
 }
