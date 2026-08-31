@@ -33,4 +33,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findWithAuthoritiesById(UUID id);
 
     boolean existsByEmailIgnoreCase(String email);
+
+    long countByEnabledTrue();
 }
