@@ -20,6 +20,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             """)
     List<User> findAllWithRoles();
 
+    @Query("""
+            select count(distinct u)
+            from User u
+            join u.roles r
+            where u.enabled = true
+              and upper(r.code) = 'SUPER_ADMIN'
+            """)
+    long countActiveSuperAdmins();
+
     @EntityGraph(attributePaths = {"roles", "roles.permissions"})
     Optional<User> findWithAuthoritiesById(UUID id);
 
