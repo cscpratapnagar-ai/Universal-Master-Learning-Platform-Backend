@@ -34,7 +34,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(Transactional.TxType.REQUIRED)
     public List<UserResponse> getAll(String query, Boolean enabled) {
         String normalized = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         return users.findAll().stream()
@@ -48,7 +48,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(Transactional.TxType.REQUIRED)
     public UserResponse getById(UUID id) {
         return mapper.toResponse(loadUser(id));
     }
