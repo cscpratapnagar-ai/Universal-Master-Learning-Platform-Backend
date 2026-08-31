@@ -1,6 +1,7 @@
 package com.masterlearning.platform.modules.platform.dto;
 
 import java.time.Instant;
+import java.util.Map;
 
 public record InternalPortalOverview(
         String status,
@@ -9,5 +10,8 @@ public record InternalPortalOverview(
         long totalUsers,
         long activeUsers,
         long totalOrganizations,
-        long activeOrganizations
+        long activeOrganizations,
+        Map<String, Long> usersByRole,
+        long newUsersLast30Days,
+        long newOrganizationsLast30Days
 ) {}
