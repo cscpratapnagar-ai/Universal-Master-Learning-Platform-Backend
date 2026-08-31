@@ -11,12 +11,9 @@ import java.util.stream.Collectors;
 public class UserMapper {
 
     public UserResponse toResponse(User user) {
-        if (user == null) {
-            return null;
-        }
+        if (user == null) return null;
 
-        Set<String> roles = user.getRoles()
-                .stream()
+        Set<String> roles = user.getRoles().stream()
                 .map(role -> role.getCode())
                 .collect(Collectors.toUnmodifiableSet());
 
@@ -25,6 +22,7 @@ public class UserMapper {
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),
+                user.isEnabled(),
                 roles
         );
     }
