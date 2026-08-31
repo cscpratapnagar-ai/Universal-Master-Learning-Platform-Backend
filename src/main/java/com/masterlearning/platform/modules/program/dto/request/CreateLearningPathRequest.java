@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.program.dto.request; import jakarta.validation.constraints.*; public record CreateLearningPathRequest(@NotBlank String title,@Size(max=2500) String description) {}
