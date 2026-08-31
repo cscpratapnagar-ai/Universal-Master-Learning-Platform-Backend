@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.course.dto.request; import jakarta.validation.constraints.NotNull; import java.util.UUID; public record EnrollRequest(@NotNull UUID userId) {}
