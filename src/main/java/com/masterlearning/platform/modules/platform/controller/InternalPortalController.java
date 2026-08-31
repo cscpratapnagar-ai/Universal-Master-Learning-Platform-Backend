@@ -10,6 +10,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/internal")
@@ -36,9 +39,20 @@ public class InternalPortalController {
                 userRepository.count(),
                 userRepository.countByEnabledTrue(),
                 organizationRepository.count(),
-                organizationRepository.countByActiveTrue()
+                organizationRepository.countByActiveTrue(),
+                usersByRole(),
+                userRepository.countByCreatedAtAfter(Instant.now().minus(30, ChronoUnit.DAYS)),
+                organizationRepository.countByCreatedAtAfter(Instant.now().minus(30, ChronoUnit.DAYS))
         );
 
         return ApiResponse.success("Internal portal overview loaded", overview);
+    }
+
+    private Map<String, Long> usersByRole() {
+        Map<String, Long> result = new LinkedHashMap<>();
+        for (Object[] row : userRepository.countUsersByRole()) {
+            result.put((String) row[0], ((Number) row[1]).longValue());
+        }
+        return result;
     }
 }
