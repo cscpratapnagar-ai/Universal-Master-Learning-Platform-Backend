@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.program.repository; import com.masterlearning.platform.modules.program.entity.Program; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface ProgramRepository extends JpaRepository<Program,UUID>{Optional<Program> findBySlug(String slug);}
