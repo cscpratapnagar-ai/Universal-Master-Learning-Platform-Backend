@@ -1,0 +1,2 @@
+CREATE TABLE lesson_progress (id UUID PRIMARY KEY, enrollment_id UUID NOT NULL REFERENCES course_enrollments(id) ON DELETE CASCADE, lesson_id UUID NOT NULL REFERENCES lessons(id) ON DELETE CASCADE, completed BOOLEAN NOT NULL DEFAULT FALSE, completed_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP, version BIGINT NOT NULL DEFAULT 0, UNIQUE(enrollment_id,lesson_id));
+CREATE INDEX idx_lesson_progress_enrollment ON lesson_progress(enrollment_id);
