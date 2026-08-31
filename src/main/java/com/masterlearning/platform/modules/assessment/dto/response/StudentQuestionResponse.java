@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.assessment.dto.response; import java.util.*; public record StudentQuestionResponse(UUID id,String questionText,String questionType,int points,List<Option> options){public record Option(UUID id,String optionText){}}
