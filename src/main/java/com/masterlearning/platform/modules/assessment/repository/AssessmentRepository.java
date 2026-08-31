@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.assessment.repository; import com.masterlearning.platform.modules.assessment.entity.Assessment; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface AssessmentRepository extends JpaRepository<Assessment,UUID>{}
