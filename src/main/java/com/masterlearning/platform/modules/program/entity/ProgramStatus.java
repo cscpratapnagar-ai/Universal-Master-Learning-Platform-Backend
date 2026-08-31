@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.program.entity; public enum ProgramStatus { DRAFT, PUBLISHED, ARCHIVED }
