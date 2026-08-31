@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.course.dto.response; import java.util.UUID; public record EnrollmentResponse(UUID enrollmentId,int progressPercent) {}
