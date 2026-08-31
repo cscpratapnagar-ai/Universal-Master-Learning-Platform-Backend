@@ -22,6 +22,8 @@ import java.util.UUID;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final String BEARER_PREFIX = "Bearer ";
+
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final AuthorityService authorityService;
@@ -43,15 +45,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String header = request.getHeader("Authorization");
+        String token = resolveBearerToken(request.getHeader("Authorization"));
 
-        if (header == null || !header.startsWith("Bearer ")) {
+        if (token == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
-            String token = header.substring(7);
             UUID userId = jwtService.extractUserId(token);
 
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -82,5 +83,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private String resolveBearerToken(String header) {
+        if (header == null) {
+            return null;
+        }
+
+        String value = header.trim();
+
+        if (!value.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
+            return null;
+        }
+
+        String token = value.substring(BEARER_PREFIX.length()).trim();
+
+        // Defensive compatibility: some API clients add the Bearer scheme automatically
+        // while callers paste an already-prefixed value into the token field.
+        if (token.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
+            token = token.substring(BEARER_PREFIX.length()).trim();
+        }
+
+        return token.isBlank() ? null : token;
     }
 }
