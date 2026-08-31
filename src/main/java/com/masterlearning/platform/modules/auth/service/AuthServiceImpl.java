@@ -15,7 +15,6 @@ import com.masterlearning.platform.modules.identity.repository.RoleRepository;
 import com.masterlearning.platform.modules.user.entity.User;
 import com.masterlearning.platform.modules.user.mapper.UserMapper;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
-import com.masterlearning.platform.security.config.SecurityProperties;
 import com.masterlearning.platform.security.jwt.JwtService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -39,7 +38,6 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final UserMapper userMapper;
-    private final SecurityProperties securityProperties;
 
     public AuthServiceImpl(
             UserRepository userRepository,
@@ -48,8 +46,7 @@ public class AuthServiceImpl implements AuthService {
             PasswordResetTokenRepository passwordResetTokenRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            UserMapper userMapper,
-            SecurityProperties securityProperties
+            UserMapper userMapper
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -58,7 +55,6 @@ public class AuthServiceImpl implements AuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.userMapper = userMapper;
-        this.securityProperties = securityProperties;
     }
 
     @Override

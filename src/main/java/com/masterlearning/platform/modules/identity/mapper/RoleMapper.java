@@ -5,8 +5,6 @@ import com.masterlearning.platform.modules.identity.entity.Role;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-import java.util.Set;
-
 @Mapper(componentModel = "spring")
 public interface RoleMapper {
 
