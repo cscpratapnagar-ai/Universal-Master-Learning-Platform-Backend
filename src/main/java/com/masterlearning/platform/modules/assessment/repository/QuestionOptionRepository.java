@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.assessment.repository; import com.masterlearning.platform.modules.assessment.entity.QuestionOption; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface QuestionOptionRepository extends JpaRepository<QuestionOption,UUID>{List<QuestionOption> findByQuestionId(UUID questionId);}
