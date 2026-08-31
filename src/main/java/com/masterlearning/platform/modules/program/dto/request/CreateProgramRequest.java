@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.program.dto.request; import jakarta.validation.constraints.*; import java.util.UUID; public record CreateProgramRequest(@NotBlank @Size(max=180) String title,@NotBlank @Size(max=220) String slug,@Size(max=3000) String description,UUID organizationId) {}
