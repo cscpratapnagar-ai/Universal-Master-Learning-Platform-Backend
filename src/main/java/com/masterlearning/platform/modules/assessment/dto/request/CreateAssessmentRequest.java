@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.assessment.dto.request; import jakarta.validation.constraints.*; public record CreateAssessmentRequest(@NotBlank String title,@Min(1) @Max(100) int passingScore) {}
