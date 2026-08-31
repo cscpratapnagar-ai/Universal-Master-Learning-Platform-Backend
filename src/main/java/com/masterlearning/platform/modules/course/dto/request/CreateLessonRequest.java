@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.course.dto.request; import jakarta.validation.constraints.*; public record CreateLessonRequest(@NotBlank String title,String contentType,String content,@Min(0) int sortOrder) {}
