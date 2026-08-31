@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.course.entity; public enum CourseStatus { DRAFT, PUBLISHED, ARCHIVED }
