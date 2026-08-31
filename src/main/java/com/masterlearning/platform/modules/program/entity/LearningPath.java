@@ -1,0 +1,3 @@
+package com.masterlearning.platform.modules.program.entity;
+import com.masterlearning.platform.common.entity.BaseEntity; import jakarta.persistence.*; import java.util.UUID;
+@Entity @Table(name="learning_paths") public class LearningPath extends BaseEntity { @Id @GeneratedValue(strategy=GenerationType.UUID) private UUID id; @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="program_id",nullable=false) private Program program; @Column(nullable=false,length=180) private String title; @Column(length=2500) private String description; protected LearningPath(){} public LearningPath(Program p,String t,String d){program=p;title=t;description=d;} public UUID getId(){return id;} public String getTitle(){return title;} public String getDescription(){return description;} }
