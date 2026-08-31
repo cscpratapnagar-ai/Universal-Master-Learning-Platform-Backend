@@ -1,0 +1,1 @@
+package com.masterlearning.platform.modules.course.repository; import com.masterlearning.platform.modules.course.entity.CourseModule; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface CourseModuleRepository extends JpaRepository<CourseModule,UUID>{List<CourseModule> findByCourseIdOrderBySortOrderAsc(UUID courseId);}
