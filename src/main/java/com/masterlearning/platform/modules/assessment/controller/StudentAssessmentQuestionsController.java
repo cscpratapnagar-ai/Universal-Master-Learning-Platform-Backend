@@ -5,7 +5,7 @@ import com.masterlearning.platform.common.api.ApiResponse; import com.masterlear
  public StudentAssessmentQuestionsController(AssessmentRepository a,QuestionRepository q,QuestionOptionRepository o){assessments=a;questions=q;options=o;}
  @GetMapping("/{assessmentId}/questions") public ApiResponse<List<StudentQuestionResponse>> questions(@PathVariable UUID assessmentId){
   assessments.findById(assessmentId).orElseThrow(()->new EntityNotFoundException("Assessment not found"));
-  var data=questions.findByAssessmentId(assessmentId).stream().map(q->new StudentQuestionResponse(q.getId(),q.getQuestionText(),q.getQuestionType().name(),q.getPoints(),options.findByQuestionId(q.getId()).stream().map(o->new StudentQuestionResponse.Option(o.getId(),o.getOptionText())).toList())).toList();
+  var data=questions.findByAssessmentId(assessmentId).stream().map(q->new StudentQuestionResponse(q.getId(),q.getQuestionText(),q.getQuestionType(),q.getPoints(),options.findByQuestionId(q.getId()).stream().map(o->new StudentQuestionResponse.Option(o.getId(),o.getOptionText())).toList())).toList();
   return ApiResponse.success("Assessment questions retrieved",data);
  }
 }
