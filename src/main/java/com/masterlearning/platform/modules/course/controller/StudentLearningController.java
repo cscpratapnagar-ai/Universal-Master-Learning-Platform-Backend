@@ -55,6 +55,12 @@ public class StudentLearningController {
                                                     enrollmentId, l.getId())
                                             .map(LessonProgress::isCompleted)
                                             .orElse(false);
+
+                                    if (!done && "AUTO_COMPLETE".equals(l.getCompletionMode())) {
+                                        markLessonCompleted(e, l, enrollmentId, l.getId());
+                                        done = true;
+                                    }
+
                                     return new LessonResponse(
                                             l.getId(), l.getTitle(), l.getContentType(),
                                             l.getContent(), l.getSortOrder(), done
