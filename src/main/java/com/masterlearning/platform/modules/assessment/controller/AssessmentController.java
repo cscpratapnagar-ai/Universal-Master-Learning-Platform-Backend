@@ -51,7 +51,7 @@ public class AssessmentController {
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
         Course course = courses.findById(courseId)
                 .orElseThrow(() -> new EntityNotFoundException("Course not found"));
-        Assessment assessment = assessments.save(new Assessment(course, request.title(), request.passingScore()));
+        Assessment assessment = assessments.save(new Assessment(course, null, null, "COURSE", request.title(), request.passingScore(), maxAttempts(request)));
         return ApiResponse.success("Course assessment created",
                 Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
     }
@@ -64,7 +64,7 @@ public class AssessmentController {
         CourseModule module = modules.findById(moduleId)
                 .orElseThrow(() -> new EntityNotFoundException("Module not found"));
         Assessment assessment = assessments.save(new Assessment(module.getCourse(), module, null,
-                "MODULE", request.title(), request.passingScore()));
+                "MODULE", request.title(), request.passingScore(), maxAttempts(request)));
         return ApiResponse.success("Module assessment created",
                 Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
     }
@@ -78,10 +78,12 @@ public class AssessmentController {
                 .orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
         CourseModule module = lesson.getModule();
         Assessment assessment = assessments.save(new Assessment(module.getCourse(), module, lesson,
-                "LESSON", request.title(), request.passingScore()));
+                "LESSON", request.title(), request.passingScore(), maxAttempts(request)));
         return ApiResponse.success("Lesson assessment created",
                 Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
     }
+
+    private int maxAttempts(CreateAssessmentRequest request) { return request.maxAttempts() == null ? 3 : request.maxAttempts(); }
 
     @PostMapping("/{assessmentId}/questions")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
