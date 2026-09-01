@@ -5,6 +5,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -20,6 +22,12 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    private final Environment environment;
+
+    public GlobalExceptionHandler(Environment environment) {
+        this.environment = environment;
+    }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiErrorResponse> handleBusinessException(
@@ -117,10 +125,20 @@ public class GlobalExceptionHandler {
     ) {
         log.error("Unhandled exception for {} {}", request.getMethod(), request.getRequestURI(), exception);
 
+        String message = "An unexpected error occurred";
+        if (environment.acceptsProfiles(Profiles.of("local"))) {
+            Throwable root = exception;
+            while (root.getCause() != null && root.getCause() != root) {
+                root = root.getCause();
+            }
+            message = root.getClass().getSimpleName() + ": "
+                    + (root.getMessage() == null ? "No message available" : root.getMessage());
+        }
+
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                 ApiErrorResponse.of(
                         ErrorCode.INTERNAL_SERVER_ERROR.name(),
-                        "An unexpected error occurred",
+                        message,
                         Map.of()
                 )
         );
