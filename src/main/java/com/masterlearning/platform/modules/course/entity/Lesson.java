@@ -31,6 +31,9 @@ public class Lesson extends BaseEntity {
     @Column(name = "completion_mode", nullable = false, length = 30)
     private String completionMode = "MANUAL_COMPLETE";
 
+    @Column(name = "completion_mode", nullable = false, length = 30)
+    private String completionMode = "MANUAL_COMPLETE";
+
     protected Lesson() {}
 
     public Lesson(CourseModule module, String title, String contentType,
@@ -48,5 +51,6 @@ public class Lesson extends BaseEntity {
     public String getContentType() { return contentType; }
     public String getContent() { return content; }
     public int getSortOrder() { return sortOrder; }
+    public String getCompletionMode() { return completionMode; }
     public String getCompletionMode() { return completionMode; }
 }
