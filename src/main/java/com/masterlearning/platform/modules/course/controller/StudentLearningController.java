@@ -25,17 +25,20 @@ public class StudentLearningController {
     private final LessonProgressRepository progress;
     private final AssessmentRepository assessments;
     private final AssessmentAttemptRepository assessmentAttempts;
+    private final LessonPrerequisiteRepository prerequisites;
 
     public StudentLearningController(EnrollmentRepository e, CourseModuleRepository m,
                                      LessonRepository l, LessonProgressRepository p,
                                      AssessmentRepository assessments,
-                                     AssessmentAttemptRepository assessmentAttempts) {
+                                     AssessmentAttemptRepository assessmentAttempts,
+                                     LessonPrerequisiteRepository prerequisites) {
         enrollments = e;
         modules = m;
         lessons = l;
         progress = p;
         this.assessments = assessments;
         this.assessmentAttempts = assessmentAttempts;
+        this.prerequisites = prerequisites;
     }
 
     @GetMapping("/enrollments/{enrollmentId}")
@@ -90,6 +93,20 @@ public class StudentLearningController {
         if (!l.getModule().getCourse().getId().equals(e.getCourse().getId())) {
             throw new IllegalArgumentException(
                     "Lesson does not belong to the enrolled course"
+            );
+        }
+
+        var requiredLessons = prerequisites.findByIdLessonId(lessonId);
+        boolean prerequisitesSatisfied = requiredLessons.stream().allMatch(required ->
+                progress.findByEnrollmentIdAndLessonId(
+                                enrollmentId, required.getPrerequisiteLessonId())
+                        .map(LessonProgress::isCompleted)
+                        .orElse(false)
+        );
+
+        if (!prerequisitesSatisfied) {
+            throw new IllegalStateException(
+                    "Complete all prerequisite lessons before accessing this lesson"
             );
         }
 
