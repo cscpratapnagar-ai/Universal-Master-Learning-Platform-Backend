@@ -57,6 +57,30 @@ public class LearningController {
         return ApiResponse.success("Lesson created", Map.of("id", l.getId(), "title", l.getTitle()));
     }
 
+    @PatchMapping("/lessons/{lessonId}/completion-mode")
+    @PreAuthorize("hasAnyRole(\'SUPER_ADMIN\',\'ADMIN\',\'INSTRUCTOR\')")
+    public ApiResponse<Map<String, Object>> updateLessonCompletionMode(
+            @PathVariable UUID lessonId,
+            @RequestBody Map<String, String> body
+    ) {
+        var lesson = lessons.findById(lessonId)
+                .orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
+
+        String mode = body.get("completionMode");
+        if (mode == null || !java.util.Set.of(
+                "AUTO_COMPLETE", "MANUAL_COMPLETE", "ASSESSMENT_REQUIRED"
+        ).contains(mode)) {
+            throw new IllegalArgumentException("Invalid completion mode");
+        }
+
+        lesson.setCompletionMode(mode);
+        lessons.save(lesson);
+        return ApiResponse.success("Lesson completion mode updated", Map.of(
+                "id", lesson.getId(),
+                "completionMode", lesson.getCompletionMode()
+        ));
+    }
+
     @PostMapping("/courses/{courseId}/enroll")
     @PreAuthorize("isAuthenticated()")
     public ApiResponse<EnrollmentResponse> enroll(@PathVariable UUID courseId) {
