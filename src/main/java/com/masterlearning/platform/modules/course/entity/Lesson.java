@@ -49,4 +49,5 @@ public class Lesson extends BaseEntity {
     public String getContent() { return content; }
     public int getSortOrder() { return sortOrder; }
     public String getCompletionMode() { return completionMode; }
+    public void setCompletionMode(String completionMode) { this.completionMode = completionMode; }
 }
