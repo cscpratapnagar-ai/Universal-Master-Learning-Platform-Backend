@@ -12,7 +12,7 @@ import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import java.util.*;
 import java.util.UUID;
 
 @RestController
@@ -61,7 +61,7 @@ public class LearningController {
     }
 
     @PatchMapping("/lessons/{lessonId}/completion-mode")
-    @PreAuthorize("hasAnyRole(\'SUPER_ADMIN\',\'ADMIN\',\'INSTRUCTOR\')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
     public ApiResponse<Map<String, Object>> updateLessonCompletionMode(
             @PathVariable UUID lessonId,
             @RequestBody Map<String, String> body
@@ -70,7 +70,7 @@ public class LearningController {
                 .orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
 
         String mode = body.get("completionMode");
-        if (mode == null || !java.util.Set.of(
+        if (mode == null || !Set.of(
                 "AUTO_COMPLETE", "MANUAL_COMPLETE", "ASSESSMENT_REQUIRED"
         ).contains(mode)) {
             throw new IllegalArgumentException("Invalid completion mode");
@@ -109,6 +109,12 @@ public class LearningController {
             throw new IllegalArgumentException("Prerequisite already configured");
         }
 
+        if (dependsOn(prerequisiteLessonId, lessonId, new HashSet<>())) {
+            throw new IllegalArgumentException(
+                    "Prerequisite would create a circular lesson dependency"
+            );
+        }
+
         prerequisites.save(new LessonPrerequisite(lessonId, prerequisiteLessonId));
         return ApiResponse.success("Lesson prerequisite added", Map.of(
                 "lessonId", lessonId,
@@ -122,12 +128,33 @@ public class LearningController {
             @PathVariable UUID lessonId,
             @PathVariable UUID prerequisiteLessonId
     ) {
+        if (!prerequisites.existsByIdLessonIdAndIdPrerequisiteLessonId(
+                lessonId, prerequisiteLessonId)) {
+            throw new EntityNotFoundException("Lesson prerequisite not found");
+        }
+
         prerequisites.deleteByIdLessonIdAndIdPrerequisiteLessonId(
                 lessonId, prerequisiteLessonId);
         return ApiResponse.success("Lesson prerequisite removed", Map.of(
                 "lessonId", lessonId,
                 "prerequisiteLessonId", prerequisiteLessonId
         ));
+    }
+
+    private boolean dependsOn(UUID lessonId, UUID targetLessonId, Set<UUID> visited) {
+        if (!visited.add(lessonId)) {
+            return false;
+        }
+
+        for (var dependency : prerequisites.findByIdLessonId(lessonId)) {
+            UUID prerequisiteId = dependency.getPrerequisiteLessonId();
+            if (prerequisiteId.equals(targetLessonId)
+                    || dependsOn(prerequisiteId, targetLessonId, visited)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @PostMapping("/courses/{courseId}/enroll")
