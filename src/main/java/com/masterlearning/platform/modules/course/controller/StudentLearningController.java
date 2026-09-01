@@ -74,7 +74,7 @@ public class StudentLearningController {
     @GetMapping("/enrollments/{enrollmentId}/lessons/{lessonId}/access")
     @PreAuthorize("isAuthenticated()")
     @Transactional(readOnly = true)
-    public ApiResponse<LessonAccessResponse> lessonAccess(
+    public ApiResponse<Map<String, Object>> lessonAccess(
             @PathVariable UUID enrollmentId,
             @PathVariable UUID lessonId
     ) {
