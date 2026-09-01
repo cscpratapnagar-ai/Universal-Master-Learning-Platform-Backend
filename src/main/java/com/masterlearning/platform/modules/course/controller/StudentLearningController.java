@@ -242,12 +242,6 @@ public class StudentLearningController {
 
         var access = getLessonAccess(enrollmentId, lesson.getId());
 
-        if (!done && access.unmetPrerequisiteLessonIds().isEmpty()
-                && "AUTO_COMPLETE".equals(lesson.getCompletionMode())) {
-            markLessonCompleted(enrollment, lesson, enrollmentId, lesson.getId());
-            done = true;
-        }
-
         boolean locked = !done && !access.unmetPrerequisiteLessonIds().isEmpty();
 
         return new LessonResponse(
