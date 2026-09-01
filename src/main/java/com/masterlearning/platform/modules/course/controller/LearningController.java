@@ -24,14 +24,17 @@ public class LearningController {
     private final LessonRepository lessons;
     private final EnrollmentRepository enrollments;
     private final UserRepository users;
+    private final LessonPrerequisiteRepository prerequisites;
 
     public LearningController(CourseRepository c, CourseModuleRepository m, LessonRepository l,
-                              EnrollmentRepository e, UserRepository u) {
+                              EnrollmentRepository e, UserRepository u,
+                              LessonPrerequisiteRepository prerequisites) {
         courses = c;
         modules = m;
         lessons = l;
         enrollments = e;
         users = u;
+        this.prerequisites = prerequisites;
     }
 
     @PostMapping("/courses/{courseId}/modules")
@@ -78,6 +81,52 @@ public class LearningController {
         return ApiResponse.success("Lesson completion mode updated", Map.of(
                 "id", lesson.getId(),
                 "completionMode", lesson.getCompletionMode()
+        ));
+    }
+
+    @PostMapping("/lessons/{lessonId}/prerequisites/{prerequisiteLessonId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    public ApiResponse<Map<String, Object>> addPrerequisite(
+            @PathVariable UUID lessonId,
+            @PathVariable UUID prerequisiteLessonId
+    ) {
+        if (lessonId.equals(prerequisiteLessonId)) {
+            throw new IllegalArgumentException("A lesson cannot depend on itself");
+        }
+
+        var lesson = lessons.findById(lessonId)
+                .orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
+        var prerequisite = lessons.findById(prerequisiteLessonId)
+                .orElseThrow(() -> new EntityNotFoundException("Prerequisite lesson not found"));
+
+        if (!lesson.getModule().getCourse().getId()
+                .equals(prerequisite.getModule().getCourse().getId())) {
+            throw new IllegalArgumentException("Prerequisite lesson must belong to the same course");
+        }
+
+        if (prerequisites.existsByIdLessonIdAndIdPrerequisiteLessonId(
+                lessonId, prerequisiteLessonId)) {
+            throw new IllegalArgumentException("Prerequisite already configured");
+        }
+
+        prerequisites.save(new LessonPrerequisite(lessonId, prerequisiteLessonId));
+        return ApiResponse.success("Lesson prerequisite added", Map.of(
+                "lessonId", lessonId,
+                "prerequisiteLessonId", prerequisiteLessonId
+        ));
+    }
+
+    @DeleteMapping("/lessons/{lessonId}/prerequisites/{prerequisiteLessonId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    public ApiResponse<Map<String, Object>> removePrerequisite(
+            @PathVariable UUID lessonId,
+            @PathVariable UUID prerequisiteLessonId
+    ) {
+        prerequisites.deleteByIdLessonIdAndIdPrerequisiteLessonId(
+                lessonId, prerequisiteLessonId);
+        return ApiResponse.success("Lesson prerequisite removed", Map.of(
+                "lessonId", lessonId,
+                "prerequisiteLessonId", prerequisiteLessonId
         ));
     }
 
