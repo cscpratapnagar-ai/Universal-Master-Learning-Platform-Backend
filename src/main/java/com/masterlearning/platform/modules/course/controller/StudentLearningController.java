@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -81,13 +82,32 @@ public class StudentLearningController {
         var lesson = getCourseLesson(e, lessonId);
         var access = getLessonAccess(enrollmentId, lessonId);
 
-        return ApiResponse.success("Lesson access status retrieved",
-                new LessonAccessResponse(
-                        lesson.getId(),
-                        !access.unmetPrerequisiteLessonIds().isEmpty(),
-                        access.prerequisiteLessonIds(),
-                        access.unmetPrerequisiteLessonIds()
-                ));
+        List<Map<String, Object>> pendingPrerequisites =
+                access.unmetPrerequisiteLessonIds().stream()
+                        .map(id -> {
+                            var prerequisite = lessons.findById(id)
+                                    .orElseThrow(() -> new EntityNotFoundException("Prerequisite lesson not found"));
+                            return Map.<String, Object>of(
+                                    "id", prerequisite.getId(),
+                                    "title", prerequisite.getTitle(),
+                                    "reason", "INCOMPLETE"
+                            );
+                        })
+                        .toList();
+
+        Map<String, Object> status = Map.of(
+                "lessonId", lesson.getId(),
+                "locked", !access.unmetPrerequisiteLessonIds().isEmpty(),
+                "totalPrerequisites", access.prerequisiteLessonIds().size(),
+                "completedPrerequisites",
+                access.prerequisiteLessonIds().size() - access.unmetPrerequisiteLessonIds().size(),
+                "pendingPrerequisites", pendingPrerequisites,
+                "unlockStatus", access.unmetPrerequisiteLessonIds().isEmpty()
+                        ? "UNLOCKED"
+                        : "COMPLETE_ALL_PENDING_PREREQUISITES"
+        );
+
+        return ApiResponse.success("Lesson access status retrieved", status);
     }
 
     @PostMapping("/enrollments/{enrollmentId}/lessons/{lessonId}/complete")
