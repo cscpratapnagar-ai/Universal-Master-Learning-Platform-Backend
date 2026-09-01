@@ -10,6 +10,7 @@ import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -86,6 +87,7 @@ public class LearningController {
 
     @PostMapping("/lessons/{lessonId}/prerequisites/{prerequisiteLessonId}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @Transactional
     public ApiResponse<Map<String, Object>> addPrerequisite(
             @PathVariable UUID lessonId,
             @PathVariable UUID prerequisiteLessonId
@@ -115,7 +117,7 @@ public class LearningController {
             );
         }
 
-        prerequisites.save(new LessonPrerequisite(lessonId, prerequisiteLessonId));
+        prerequisites.saveAndFlush(new LessonPrerequisite(lessonId, prerequisiteLessonId));
         return ApiResponse.success("Lesson prerequisite added", Map.of(
                 "lessonId", lessonId,
                 "prerequisiteLessonId", prerequisiteLessonId
@@ -124,6 +126,7 @@ public class LearningController {
 
     @DeleteMapping("/lessons/{lessonId}/prerequisites/{prerequisiteLessonId}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @Transactional
     public ApiResponse<Map<String, Object>> removePrerequisite(
             @PathVariable UUID lessonId,
             @PathVariable UUID prerequisiteLessonId
