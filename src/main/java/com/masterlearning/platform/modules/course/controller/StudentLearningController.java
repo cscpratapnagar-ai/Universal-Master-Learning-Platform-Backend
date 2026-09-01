@@ -1,11 +1,13 @@
 package com.masterlearning.platform.modules.course.controller;
 
 import com.masterlearning.platform.common.api.ApiResponse;
-import com.masterlearning.platform.modules.course.dto.response.*;
-import com.masterlearning.platform.modules.course.entity.LessonProgress;
-import com.masterlearning.platform.modules.course.repository.*;
 import com.masterlearning.platform.modules.assessment.repository.AssessmentAttemptRepository;
 import com.masterlearning.platform.modules.assessment.repository.AssessmentRepository;
+import com.masterlearning.platform.modules.course.dto.response.*;
+import com.masterlearning.platform.modules.course.entity.Enrollment;
+import com.masterlearning.platform.modules.course.entity.Lesson;
+import com.masterlearning.platform.modules.course.entity.LessonProgress;
+import com.masterlearning.platform.modules.course.repository.*;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
@@ -13,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -43,7 +46,7 @@ public class StudentLearningController {
 
     @GetMapping("/enrollments/{enrollmentId}")
     @PreAuthorize("isAuthenticated()")
-    @Transactional(readOnly = true)
+    @Transactional
     public ApiResponse<CourseLearningResponse> course(@PathVariable UUID enrollmentId) {
         var e = getOwnedEnrollment(enrollmentId);
 
@@ -53,22 +56,8 @@ public class StudentLearningController {
                         m.getTitle(),
                         m.getSortOrder(),
                         lessons.findByModuleIdOrderBySortOrderAsc(m.getId()).stream()
-                                .map(l -> {
-                                    boolean done = progress.findByEnrollmentIdAndLessonId(
-                                                    enrollmentId, l.getId())
-                                            .map(LessonProgress::isCompleted)
-                                            .orElse(false);
-
-                                    if (!done && "AUTO_COMPLETE".equals(l.getCompletionMode())) {
-                                        markLessonCompleted(e, l, enrollmentId, l.getId());
-                                        done = true;
-                                    }
-
-                                    return new LessonResponse(
-                                            l.getId(), l.getTitle(), l.getContentType(),
-                                            l.getContent(), l.getSortOrder(), done
-                                    );
-                                }).toList()
+                                .map(l -> toLessonResponse(e, enrollmentId, l))
+                                .toList()
                 )).toList();
 
         return ApiResponse.success("Course learning content retrieved",
@@ -81,32 +70,39 @@ public class StudentLearningController {
                 ));
     }
 
+    @GetMapping("/enrollments/{enrollmentId}/lessons/{lessonId}/access")
+    @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
+    public ApiResponse<LessonAccessResponse> lessonAccess(
+            @PathVariable UUID enrollmentId,
+            @PathVariable UUID lessonId
+    ) {
+        var e = getOwnedEnrollment(enrollmentId);
+        var lesson = getCourseLesson(e, lessonId);
+        var access = getLessonAccess(enrollmentId, lessonId);
+
+        return ApiResponse.success("Lesson access status retrieved",
+                new LessonAccessResponse(
+                        lesson.getId(),
+                        !access.unmetPrerequisiteLessonIds().isEmpty(),
+                        access.prerequisiteLessonIds(),
+                        access.unmetPrerequisiteLessonIds()
+                ));
+    }
+
     @PostMapping("/enrollments/{enrollmentId}/lessons/{lessonId}/complete")
     @PreAuthorize("isAuthenticated()")
     @Transactional
     public ApiResponse<EnrollmentResponse> complete(@PathVariable UUID enrollmentId,
                                                      @PathVariable UUID lessonId) {
         var e = getOwnedEnrollment(enrollmentId);
-        var l = lessons.findById(lessonId)
-                .orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
+        var l = getCourseLesson(e, lessonId);
 
-        if (!l.getModule().getCourse().getId().equals(e.getCourse().getId())) {
-            throw new IllegalArgumentException(
-                    "Lesson does not belong to the enrolled course"
-            );
-        }
-
-        var requiredLessons = prerequisites.findByIdLessonId(lessonId);
-        boolean prerequisitesSatisfied = requiredLessons.stream().allMatch(required ->
-                progress.findByEnrollmentIdAndLessonId(
-                                enrollmentId, required.getPrerequisiteLessonId())
-                        .map(LessonProgress::isCompleted)
-                        .orElse(false)
-        );
-
-        if (!prerequisitesSatisfied) {
+        var access = getLessonAccess(enrollmentId, lessonId);
+        if (!access.unmetPrerequisiteLessonIds().isEmpty()) {
             throw new IllegalStateException(
-                    "Complete all prerequisite lessons before accessing this lesson"
+                    "Lesson is locked. Complete all prerequisite lessons first: "
+                            + access.unmetPrerequisiteLessonIds()
             );
         }
 
@@ -140,9 +136,80 @@ public class StudentLearningController {
         return markLessonCompleted(e, l, enrollmentId, lessonId);
     }
 
+    private LessonResponse toLessonResponse(Enrollment enrollment, UUID enrollmentId, Lesson lesson) {
+        boolean done = progress.findByEnrollmentIdAndLessonId(enrollmentId, lesson.getId())
+                .map(LessonProgress::isCompleted)
+                .orElse(false);
+
+        var access = getLessonAccess(enrollmentId, lesson.getId());
+
+        if (!done && access.unmetPrerequisiteLessonIds().isEmpty()
+                && "AUTO_COMPLETE".equals(lesson.getCompletionMode())) {
+            markLessonCompleted(enrollment, lesson, enrollmentId, lesson.getId());
+            done = true;
+        }
+
+        boolean locked = !done && !access.unmetPrerequisiteLessonIds().isEmpty();
+
+        return new LessonResponse(
+                lesson.getId(),
+                lesson.getTitle(),
+                lesson.getContentType(),
+                locked ? null : lesson.getContent(),
+                lesson.getSortOrder(),
+                done,
+                locked,
+                access.unmetPrerequisiteLessonIds()
+        );
+    }
+
+    private LessonAccess getLessonAccess(UUID enrollmentId, UUID lessonId) {
+        List<UUID> prerequisiteIds = prerequisites.findByIdLessonId(lessonId).stream()
+                .map(p -> p.getPrerequisiteLessonId())
+                .toList();
+
+        List<UUID> unmetIds = prerequisiteIds.stream()
+                .filter(prerequisiteId -> progress
+                        .findByEnrollmentIdAndLessonId(enrollmentId, prerequisiteId)
+                        .map(LessonProgress::isCompleted)
+                        .orElse(false) == false)
+                .toList();
+
+        return new LessonAccess(prerequisiteIds, unmetIds);
+    }
+
+    private record LessonAccess(
+            List<UUID> prerequisiteLessonIds,
+            List<UUID> unmetPrerequisiteLessonIds
+    ) {}
+
+    private Enrollment getOwnedEnrollment(UUID enrollmentId) {
+        var enrollment = enrollments.findById(enrollmentId)
+                .orElseThrow(() -> new EntityNotFoundException("Enrollment not found"));
+
+        if (!enrollment.getUser().getId().equals(SecurityUtils.getCurrentUserId())) {
+            throw new AccessDeniedException("You cannot access another user's learning data");
+        }
+
+        return enrollment;
+    }
+
+    private Lesson getCourseLesson(Enrollment enrollment, UUID lessonId) {
+        var lesson = lessons.findById(lessonId)
+                .orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
+
+        if (!lesson.getModule().getCourse().getId().equals(enrollment.getCourse().getId())) {
+            throw new IllegalArgumentException(
+                    "Lesson does not belong to the enrolled course"
+            );
+        }
+
+        return lesson;
+    }
+
     private ApiResponse<EnrollmentResponse> markLessonCompleted(
-            com.masterlearning.platform.modules.course.entity.Enrollment enrollment,
-            com.masterlearning.platform.modules.course.entity.Lesson lesson,
+            Enrollment enrollment,
+            Lesson lesson,
             UUID enrollmentId,
             UUID lessonId
     ) {
@@ -164,18 +231,5 @@ public class StudentLearningController {
                 "Lesson completed and progress updated",
                 new EnrollmentResponse(enrollment.getId(), enrollment.getProgressPercent())
         );
-    }
-
-    private com.masterlearning.platform.modules.course.entity.Enrollment getOwnedEnrollment(
-            UUID enrollmentId
-    ) {
-        var enrollment = enrollments.findById(enrollmentId)
-                .orElseThrow(() -> new EntityNotFoundException("Enrollment not found"));
-
-        if (!enrollment.getUser().getId().equals(SecurityUtils.getCurrentUserId())) {
-            throw new AccessDeniedException("You cannot access another user's learning data");
-        }
-
-        return enrollment;
     }
 }
