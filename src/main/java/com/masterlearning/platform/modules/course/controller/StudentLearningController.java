@@ -143,15 +143,44 @@ public class StudentLearningController {
                 })
                 .toList();
 
-        Map<String, Object> nextLesson = lessonStatuses.stream()
+        long completedCount = lessonStatuses.stream()
+                .filter(status -> "COMPLETED".equals(status.get("status")))
+                .count();
+        long availableCount = lessonStatuses.stream()
                 .filter(status -> "AVAILABLE".equals(status.get("status")))
-                .findFirst()
-                .orElse(null);
+                .count();
+        long lockedCount = lessonStatuses.stream()
+                .filter(status -> "LOCKED".equals(status.get("status")))
+                .count();
+
+        int recalculatedProgress = courseLessons.isEmpty()
+                ? 0
+                : (int) Math.round(completedCount * 100.0 / courseLessons.size());
+
+        boolean courseCompleted = !courseLessons.isEmpty()
+                && completedCount == courseLessons.size();
+
+        if (enrollment.getProgressPercent() != recalculatedProgress) {
+            enrollment.updateProgress(recalculatedProgress);
+            enrollments.save(enrollment);
+        }
+
+        Map<String, Object> nextLesson = courseCompleted
+                ? null
+                : lessonStatuses.stream()
+                        .filter(status -> "AVAILABLE".equals(status.get("status")))
+                        .findFirst()
+                        .orElse(null);
 
         return ApiResponse.success("Learning path retrieved", Map.of(
                 "enrollmentId", enrollmentId,
                 "courseId", enrollment.getCourse().getId(),
-                "progressPercent", enrollment.getProgressPercent(),
+                "progressPercent", recalculatedProgress,
+                "completedLessonsCount", completedCount,
+                "availableLessonsCount", availableCount,
+                "lockedLessonsCount", lockedCount,
+                "totalLessonsCount", courseLessons.size(),
+                "isCourseCompleted", courseCompleted,
                 "nextRecommendedLesson", nextLesson == null ? Map.of() : nextLesson,
                 "lessons", lessonStatuses
         ));
