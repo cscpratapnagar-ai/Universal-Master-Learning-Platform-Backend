@@ -87,6 +87,10 @@ public class StudentLearningController {
             );
         }
 
+        if ("AUTO_COMPLETE".equals(l.getCompletionMode())) {
+            return markLessonCompleted(e, l, enrollmentId, lessonId);
+        }
+
         if ("ASSESSMENT_REQUIRED".equals(l.getCompletionMode())) {
             var lessonAssessments = assessments.findByLessonId(lessonId);
             if (lessonAssessments.isEmpty()) {
@@ -110,23 +114,32 @@ public class StudentLearningController {
             }
         }
 
+        return markLessonCompleted(e, l, enrollmentId, lessonId);
+    }
+
+    private ApiResponse<EnrollmentResponse> markLessonCompleted(
+            com.masterlearning.platform.modules.course.entity.Enrollment enrollment,
+            com.masterlearning.platform.modules.course.entity.Lesson lesson,
+            UUID enrollmentId,
+            UUID lessonId
+    ) {
         var lp = progress.findByEnrollmentIdAndLessonId(enrollmentId, lessonId)
-                .orElseGet(() -> progress.save(new LessonProgress(e, l)));
+                .orElseGet(() -> progress.save(new LessonProgress(enrollment, lesson)));
 
         lp.complete();
 
         long completed = progress.countByEnrollmentIdAndCompletedTrue(enrollmentId);
-        long total = modules.findByCourseIdOrderBySortOrderAsc(e.getCourse().getId()).stream()
+        long total = modules.findByCourseIdOrderBySortOrderAsc(enrollment.getCourse().getId()).stream()
                 .mapToLong(m -> lessons.findByModuleIdOrderBySortOrderAsc(m.getId()).size())
                 .sum();
 
         int percent = total == 0 ? 0 : (int) Math.round(completed * 100.0 / total);
-        e.updateProgress(percent);
-        enrollments.save(e);
+        enrollment.updateProgress(percent);
+        enrollments.save(enrollment);
 
         return ApiResponse.success(
                 "Lesson completed and progress updated",
-                new EnrollmentResponse(e.getId(), e.getProgressPercent())
+                new EnrollmentResponse(enrollment.getId(), enrollment.getProgressPercent())
         );
     }
 
