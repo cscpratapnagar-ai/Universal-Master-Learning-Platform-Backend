@@ -214,7 +214,7 @@ public class LearningController {
         var u = users.findById(currentUserId)
                 .orElseThrow(() -> new EntityNotFoundException("Authenticated user not found"));
 
-        var e = enrollments.save(new Enrollment(c, u));
+        var e = enrollments.saveAndFlush(new Enrollment(c, u));
         return ApiResponse.success(
                 "Enrollment successful",
                 new EnrollmentResponse(e.getId(), e.getProgressPercent())
