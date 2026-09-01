@@ -91,7 +91,18 @@ class LearningControllerPrerequisiteTest {
 
     private Lesson lesson(String title) {
         Course course = new Course("Course", "course-" + UUID.randomUUID(), "Test", null);
+        setCourseId(course, UUID.randomUUID());
         return new Lesson(new CourseModule(course, "Module", 1), title, "TEXT", "content", 1);
+    }
+
+    private void setCourseId(Course course, UUID id) {
+        try {
+            Field field = Course.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(course, id);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
     }
 
     private void putInSameCourse(Lesson first, Lesson second) {
