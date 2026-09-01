@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.UUID;
 
 @RestController
@@ -172,19 +173,20 @@ public class StudentLearningController {
                         .findFirst()
                         .orElse(null);
 
-        return ApiResponse.success("Learning path retrieved", Map.of(
-                "enrollmentId", enrollmentId,
-                "courseId", enrollment.getCourse().getId(),
-                "progressPercent", recalculatedProgress,
-                "completedLessonsCount", completedCount,
-                "availableLessonsCount", availableCount,
-                "lockedLessonsCount", lockedCount,
-                "totalLessonsCount", courseLessons.size(),
-                "isCourseCompleted", courseCompleted,
-                "courseCompletedAt", enrollment.getCompletedAt(),
-                "nextRecommendedLesson", nextLesson == null ? Map.of() : nextLesson,
-                "lessons", lessonStatuses
-        ));
+        Map<String, Object> learningPath = new LinkedHashMap<>();
+        learningPath.put("enrollmentId", enrollmentId);
+        learningPath.put("courseId", enrollment.getCourse().getId());
+        learningPath.put("progressPercent", recalculatedProgress);
+        learningPath.put("completedLessonsCount", completedCount);
+        learningPath.put("availableLessonsCount", availableCount);
+        learningPath.put("lockedLessonsCount", lockedCount);
+        learningPath.put("totalLessonsCount", courseLessons.size());
+        learningPath.put("isCourseCompleted", courseCompleted);
+        learningPath.put("courseCompletedAt", enrollment.getCompletedAt());
+        learningPath.put("nextRecommendedLesson", nextLesson == null ? Map.of() : nextLesson);
+        learningPath.put("lessons", lessonStatuses);
+
+        return ApiResponse.success("Learning path retrieved", learningPath);
     }
 
     @PostMapping("/enrollments/{enrollmentId}/lessons/{lessonId}/complete")
