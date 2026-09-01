@@ -8,7 +8,6 @@ import java.util.UUID;
 @Entity
 @Table(name = "lessons")
 public class Lesson extends BaseEntity {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -29,8 +28,10 @@ public class Lesson extends BaseEntity {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
-    protected Lesson() {
-    }
+    @Column(name = "completion_mode", nullable = false, length = 30)
+    private String completionMode = "MANUAL_COMPLETE";
+
+    protected Lesson() {}
 
     public Lesson(CourseModule module, String title, String contentType,
                   String content, int sortOrder) {
@@ -47,4 +48,5 @@ public class Lesson extends BaseEntity {
     public String getContentType() { return contentType; }
     public String getContent() { return content; }
     public int getSortOrder() { return sortOrder; }
+    public String getCompletionMode() { return completionMode; }
 }
