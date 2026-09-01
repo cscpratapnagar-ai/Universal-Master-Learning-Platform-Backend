@@ -110,6 +110,53 @@ public class StudentLearningController {
         return ApiResponse.success("Lesson access status retrieved", status);
     }
 
+    @GetMapping("/enrollments/{enrollmentId}/learning-path")
+    @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
+    public ApiResponse<Map<String, Object>> learningPath(@PathVariable UUID enrollmentId) {
+        var enrollment = getOwnedEnrollment(enrollmentId);
+
+        List<Lesson> courseLessons = modules
+                .findByCourseIdOrderBySortOrderAsc(enrollment.getCourse().getId())
+                .stream()
+                .flatMap(module -> lessons.findByModuleIdOrderBySortOrderAsc(module.getId()).stream())
+                .toList();
+
+        List<Map<String, Object>> lessonStatuses = courseLessons.stream()
+                .map(lesson -> {
+                    boolean completed = progress
+                            .findByEnrollmentIdAndLessonId(enrollmentId, lesson.getId())
+                            .map(LessonProgress::isCompleted)
+                            .orElse(false);
+                    var access = getLessonAccess(enrollmentId, lesson.getId());
+                    boolean locked = !completed && !access.unmetPrerequisiteLessonIds().isEmpty();
+
+                    return Map.<String, Object>of(
+                            "lessonId", lesson.getId(),
+                            "title", lesson.getTitle(),
+                            "sortOrder", lesson.getSortOrder(),
+                            "completed", completed,
+                            "locked", locked,
+                            "status", completed ? "COMPLETED" : (locked ? "LOCKED" : "AVAILABLE"),
+                            "pendingPrerequisiteCount", access.unmetPrerequisiteLessonIds().size()
+                    );
+                })
+                .toList();
+
+        Map<String, Object> nextLesson = lessonStatuses.stream()
+                .filter(status -> "AVAILABLE".equals(status.get("status")))
+                .findFirst()
+                .orElse(null);
+
+        return ApiResponse.success("Learning path retrieved", Map.of(
+                "enrollmentId", enrollmentId,
+                "courseId", enrollment.getCourse().getId(),
+                "progressPercent", enrollment.getProgressPercent(),
+                "nextRecommendedLesson", nextLesson == null ? Map.of() : nextLesson,
+                "lessons", lessonStatuses
+        ));
+    }
+
     @PostMapping("/enrollments/{enrollmentId}/lessons/{lessonId}/complete")
     @PreAuthorize("isAuthenticated()")
     @Transactional
