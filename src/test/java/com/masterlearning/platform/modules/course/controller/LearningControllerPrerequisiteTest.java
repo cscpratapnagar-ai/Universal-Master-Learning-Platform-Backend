@@ -57,6 +57,28 @@ class LearningControllerPrerequisiteTest {
     }
 
     @Test
+    void rejectsDeepCircularPrerequisite() {
+        UUID aId = UUID.randomUUID();
+        UUID bId = UUID.randomUUID();
+        UUID cId = UUID.randomUUID();
+        UUID dId = UUID.randomUUID();
+
+        Lesson a = lesson("A");
+        Lesson d = lesson("D");
+        putInSameCourse(a, d);
+
+        when(lessons.findById(aId)).thenReturn(Optional.of(a));
+        when(lessons.findById(dId)).thenReturn(Optional.of(d));
+        when(prerequisites.existsByIdLessonIdAndIdPrerequisiteLessonId(aId, dId)).thenReturn(false);
+        when(prerequisites.findByIdLessonId(dId)).thenReturn(List.of(new LessonPrerequisite(dId, cId)));
+        when(prerequisites.findByIdLessonId(cId)).thenReturn(List.of(new LessonPrerequisite(cId, bId)));
+        when(prerequisites.findByIdLessonId(bId)).thenReturn(List.of(new LessonPrerequisite(bId, aId)));
+
+        assertThrows(IllegalArgumentException.class, () -> controller.addPrerequisite(aId, dId));
+        verify(prerequisites, never()).saveAndFlush(any());
+    }
+
+    @Test
     void allowsMultiplePrerequisitesForSameLesson() {
         UUID lessonB = UUID.randomUUID();
         UUID prerequisiteA = UUID.randomUUID();
