@@ -9,4 +9,5 @@ import java.util.UUID;
 public interface LessonPrerequisiteRepository extends JpaRepository<LessonPrerequisite, LessonPrerequisite.Id> {
     List<LessonPrerequisite> findByIdLessonId(UUID lessonId);
     void deleteByIdLessonIdAndIdPrerequisiteLessonId(UUID lessonId, UUID prerequisiteLessonId);
+    boolean existsByIdLessonIdAndIdPrerequisiteLessonId(UUID lessonId, UUID prerequisiteLessonId);
 }
