@@ -4,6 +4,8 @@ import com.masterlearning.platform.common.api.ApiResponse;
 import com.masterlearning.platform.modules.course.dto.response.*;
 import com.masterlearning.platform.modules.course.entity.LessonProgress;
 import com.masterlearning.platform.modules.course.repository.*;
+import com.masterlearning.platform.modules.assessment.repository.AssessmentAttemptRepository;
+import com.masterlearning.platform.modules.assessment.repository.AssessmentRepository;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
@@ -21,13 +23,19 @@ public class StudentLearningController {
     private final CourseModuleRepository modules;
     private final LessonRepository lessons;
     private final LessonProgressRepository progress;
+    private final AssessmentRepository assessments;
+    private final AssessmentAttemptRepository assessmentAttempts;
 
     public StudentLearningController(EnrollmentRepository e, CourseModuleRepository m,
-                                     LessonRepository l, LessonProgressRepository p) {
+                                     LessonRepository l, LessonProgressRepository p,
+                                     AssessmentRepository assessments,
+                                     AssessmentAttemptRepository assessmentAttempts) {
         enrollments = e;
         modules = m;
         lessons = l;
         progress = p;
+        this.assessments = assessments;
+        this.assessmentAttempts = assessmentAttempts;
     }
 
     @GetMapping("/enrollments/{enrollmentId}")
@@ -77,6 +85,29 @@ public class StudentLearningController {
             throw new IllegalArgumentException(
                     "Lesson does not belong to the enrolled course"
             );
+        }
+
+        if ("ASSESSMENT_REQUIRED".equals(l.getCompletionMode())) {
+            var lessonAssessments = assessments.findByLessonId(lessonId);
+            if (lessonAssessments.isEmpty()) {
+                throw new IllegalStateException(
+                        "Lesson requires an assessment, but no lesson assessment is configured"
+                );
+            }
+
+            UUID currentUserId = SecurityUtils.getCurrentUserId();
+            boolean passed = lessonAssessments.stream().anyMatch(assessment ->
+                    assessmentAttempts
+                            .findTopByAssessmentIdAndUserIdAndPassedTrueOrderBySubmittedAtDesc(
+                                    assessment.getId(), currentUserId)
+                            .isPresent()
+            );
+
+            if (!passed) {
+                throw new IllegalStateException(
+                        "You must pass the required lesson assessment before completing this lesson"
+                );
+            }
         }
 
         var lp = progress.findByEnrollmentIdAndLessonId(enrollmentId, lessonId)
