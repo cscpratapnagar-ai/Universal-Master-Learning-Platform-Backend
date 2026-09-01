@@ -18,6 +18,7 @@ import com.masterlearning.platform.modules.course.repository.LessonRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -57,6 +58,7 @@ public class AssessmentController {
 
     @PostMapping("/modules/{moduleId}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @Transactional
     public ApiResponse<Map<String,Object>> createModuleAssessment(@PathVariable UUID moduleId,
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
         CourseModule module = modules.findById(moduleId)
@@ -69,6 +71,7 @@ public class AssessmentController {
 
     @PostMapping("/lessons/{lessonId}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @Transactional
     public ApiResponse<Map<String,Object>> createLessonAssessment(@PathVariable UUID lessonId,
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
         Lesson lesson = lessons.findById(lessonId)
