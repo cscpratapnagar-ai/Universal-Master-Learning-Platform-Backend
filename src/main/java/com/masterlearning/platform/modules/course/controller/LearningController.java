@@ -160,6 +160,41 @@ public class LearningController {
         return false;
     }
 
+    @GetMapping("/courses/{courseId}/dependency-graph")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    public ApiResponse<Map<String, Object>> dependencyGraph(@PathVariable UUID courseId) {
+        var course = courses.findById(courseId)
+                .orElseThrow(() -> new EntityNotFoundException("Course not found"));
+
+        List<Map<String, Object>> nodes = new ArrayList<>();
+        List<Map<String, Object>> edges = new ArrayList<>();
+
+        for (var module : modules.findByCourseIdOrderBySortOrderAsc(course.getId())) {
+            for (var lesson : lessons.findByModuleIdOrderBySortOrderAsc(module.getId())) {
+                nodes.add(Map.of(
+                        "id", lesson.getId(),
+                        "title", lesson.getTitle(),
+                        "moduleId", module.getId(),
+                        "moduleTitle", module.getTitle(),
+                        "sortOrder", lesson.getSortOrder()
+                ));
+
+                for (var prerequisite : prerequisites.findByIdLessonId(lesson.getId())) {
+                    edges.add(Map.of(
+                            "from", prerequisite.getPrerequisiteLessonId(),
+                            "to", lesson.getId()
+                    ));
+                }
+            }
+        }
+
+        return ApiResponse.success("Course dependency graph retrieved", Map.of(
+                "courseId", course.getId(),
+                "nodes", nodes,
+                "edges", edges
+        ));
+    }
+
     @PostMapping("/courses/{courseId}/enroll")
     @PreAuthorize("isAuthenticated()")
     public ApiResponse<EnrollmentResponse> enroll(@PathVariable UUID courseId) {
