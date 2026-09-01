@@ -200,8 +200,13 @@ public class LearningController {
     public ApiResponse<EnrollmentResponse> enroll(@PathVariable UUID courseId) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
 
-        if (enrollments.existsByCourseIdAndUserId(courseId, currentUserId)) {
-            throw new IllegalArgumentException("User already enrolled");
+        var existingEnrollment = enrollments.findByCourseIdAndUserId(courseId, currentUserId);
+        if (existingEnrollment.isPresent()) {
+            var e = existingEnrollment.get();
+            return ApiResponse.success(
+                    "User already enrolled",
+                    new EnrollmentResponse(e.getId(), e.getProgressPercent())
+            );
         }
 
         var c = courses.findById(courseId)
