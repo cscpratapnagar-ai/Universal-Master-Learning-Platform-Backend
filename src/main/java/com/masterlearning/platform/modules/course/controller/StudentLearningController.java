@@ -112,7 +112,7 @@ public class StudentLearningController {
 
     @GetMapping("/enrollments/{enrollmentId}/learning-path")
     @PreAuthorize("isAuthenticated()")
-    @Transactional(readOnly = true)
+    @Transactional
     public ApiResponse<Map<String, Object>> learningPath(@PathVariable UUID enrollmentId) {
         var enrollment = getOwnedEnrollment(enrollmentId);
 
@@ -181,6 +181,7 @@ public class StudentLearningController {
                 "lockedLessonsCount", lockedCount,
                 "totalLessonsCount", courseLessons.size(),
                 "isCourseCompleted", courseCompleted,
+                "courseCompletedAt", enrollment.getCompletedAt(),
                 "nextRecommendedLesson", nextLesson == null ? Map.of() : nextLesson,
                 "lessons", lessonStatuses
         ));
