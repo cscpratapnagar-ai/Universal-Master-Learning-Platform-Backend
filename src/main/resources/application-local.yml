@@ -3,7 +3,7 @@ spring:
     banner-mode: console
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/master_learning}
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/master_learning}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
