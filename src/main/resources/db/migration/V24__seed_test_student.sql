@@ -16,7 +16,10 @@ INSERT INTO users (
     CURRENT_TIMESTAMP,
     0
 )
-ON CONFLICT (email) DO NOTHING;
+ON CONFLICT (email) DO UPDATE SET
+    password_hash = EXCLUDED.password_hash,
+    enabled = TRUE,
+    updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO user_roles (user_id, role_id)
 SELECT
