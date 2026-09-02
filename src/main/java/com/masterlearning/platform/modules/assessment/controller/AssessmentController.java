@@ -47,11 +47,12 @@ public class AssessmentController {
 
     @PostMapping("/courses/{courseId}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @Transactional
     public ApiResponse<Map<String,Object>> createCourseAssessment(@PathVariable UUID courseId,
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
         Course course = courses.findById(courseId)
                 .orElseThrow(() -> new EntityNotFoundException("Course not found"));
-        Assessment assessment = assessments.save(new Assessment(course, null, null, "COURSE", request.title(), request.passingScore(), maxAttempts(request)));
+        Assessment assessment = assessments.saveAndFlush(new Assessment(course, null, null, "COURSE", request.title(), request.passingScore(), maxAttempts(request)));
         return ApiResponse.success("Course assessment created",
                 Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
     }
@@ -63,7 +64,7 @@ public class AssessmentController {
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
         CourseModule module = modules.findById(moduleId)
                 .orElseThrow(() -> new EntityNotFoundException("Module not found"));
-        Assessment assessment = assessments.save(new Assessment(module.getCourse(), module, null,
+        Assessment assessment = assessments.saveAndFlush(new Assessment(module.getCourse(), module, null,
                 "MODULE", request.title(), request.passingScore(), maxAttempts(request)));
         return ApiResponse.success("Module assessment created",
                 Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
@@ -77,7 +78,7 @@ public class AssessmentController {
         Lesson lesson = lessons.findById(lessonId)
                 .orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
         CourseModule module = lesson.getModule();
-        Assessment assessment = assessments.save(new Assessment(module.getCourse(), module, lesson,
+        Assessment assessment = assessments.saveAndFlush(new Assessment(module.getCourse(), module, lesson,
                 "LESSON", request.title(), request.passingScore(), maxAttempts(request)));
         return ApiResponse.success("Lesson assessment created",
                 Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
@@ -87,6 +88,7 @@ public class AssessmentController {
 
     @PostMapping("/{assessmentId}/questions")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @Transactional
     public ApiResponse<Map<String,Object>> question(@PathVariable UUID assessmentId,
                                                      @Valid @RequestBody CreateQuestionRequest request) {
         Assessment assessment = assessments.findById(assessmentId)
@@ -94,9 +96,10 @@ public class AssessmentController {
         if (request.options().stream().noneMatch(CreateQuestionRequest.Option::correct)) {
             throw new IllegalArgumentException("At least one correct option is required");
         }
-        Question question = questions.save(new Question(assessment, request.questionText(),
+        Question question = questions.saveAndFlush(new Question(assessment, request.questionText(),
                 request.questionType() == null ? "SINGLE_CHOICE" : request.questionType(), request.points()));
         request.options().forEach(option -> options.save(new QuestionOption(question, option.text(), option.correct())));
+        options.flush();
         return ApiResponse.success("Question created", Map.of("id", question.getId()));
     }
 }
