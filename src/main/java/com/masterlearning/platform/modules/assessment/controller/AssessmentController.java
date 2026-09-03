@@ -50,11 +50,9 @@ public class AssessmentController {
     @Transactional
     public ApiResponse<Map<String,Object>> createCourseAssessment(@PathVariable UUID courseId,
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
-        Course course = courses.findById(courseId)
-                .orElseThrow(() -> new EntityNotFoundException("Course not found"));
+        Course course = courses.findById(courseId).orElseThrow(() -> new EntityNotFoundException("Course not found"));
         Assessment assessment = assessments.saveAndFlush(new Assessment(course, null, null, "COURSE", request.title(), request.passingScore(), maxAttempts(request)));
-        return ApiResponse.success("Course assessment created",
-                Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
+        return ApiResponse.success("Course assessment created", Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
     }
 
     @PostMapping("/modules/{moduleId}")
@@ -62,12 +60,9 @@ public class AssessmentController {
     @Transactional
     public ApiResponse<Map<String,Object>> createModuleAssessment(@PathVariable UUID moduleId,
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
-        CourseModule module = modules.findById(moduleId)
-                .orElseThrow(() -> new EntityNotFoundException("Module not found"));
-        Assessment assessment = assessments.saveAndFlush(new Assessment(module.getCourse(), module, null,
-                "MODULE", request.title(), request.passingScore(), maxAttempts(request)));
-        return ApiResponse.success("Module assessment created",
-                Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
+        CourseModule module = modules.findById(moduleId).orElseThrow(() -> new EntityNotFoundException("Module not found"));
+        Assessment assessment = assessments.saveAndFlush(new Assessment(module.getCourse(), module, null, "MODULE", request.title(), request.passingScore(), maxAttempts(request)));
+        return ApiResponse.success("Module assessment created", Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
     }
 
     @PostMapping("/lessons/{lessonId}")
@@ -75,13 +70,12 @@ public class AssessmentController {
     @Transactional
     public ApiResponse<Map<String,Object>> createLessonAssessment(@PathVariable UUID lessonId,
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
-        Lesson lesson = lessons.findById(lessonId)
-                .orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
+        Lesson lesson = lessons.findById(lessonId).orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
+        lesson.setCompletionMode("ASSESSMENT_REQUIRED");
+        lessons.saveAndFlush(lesson);
         CourseModule module = lesson.getModule();
-        Assessment assessment = assessments.saveAndFlush(new Assessment(module.getCourse(), module, lesson,
-                "LESSON", request.title(), request.passingScore(), maxAttempts(request)));
-        return ApiResponse.success("Lesson assessment created",
-                Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
+        Assessment assessment = assessments.saveAndFlush(new Assessment(module.getCourse(), module, lesson, "LESSON", request.title(), request.passingScore(), maxAttempts(request)));
+        return ApiResponse.success("Lesson assessment created and completion gate enabled", Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
     }
 
     private int maxAttempts(CreateAssessmentRequest request) { return request.maxAttempts() == null ? 3 : request.maxAttempts(); }
@@ -91,13 +85,11 @@ public class AssessmentController {
     @Transactional
     public ApiResponse<Map<String,Object>> question(@PathVariable UUID assessmentId,
                                                      @Valid @RequestBody CreateQuestionRequest request) {
-        Assessment assessment = assessments.findById(assessmentId)
-                .orElseThrow(() -> new EntityNotFoundException("Assessment not found"));
+        Assessment assessment = assessments.findById(assessmentId).orElseThrow(() -> new EntityNotFoundException("Assessment not found"));
         if (request.options().stream().noneMatch(CreateQuestionRequest.Option::correct)) {
             throw new IllegalArgumentException("At least one correct option is required");
         }
-        Question question = questions.saveAndFlush(new Question(assessment, request.questionText(),
-                request.questionType() == null ? "SINGLE_CHOICE" : request.questionType(), request.points()));
+        Question question = questions.saveAndFlush(new Question(assessment, request.questionText(), request.questionType() == null ? "SINGLE_CHOICE" : request.questionType(), request.points()));
         request.options().forEach(option -> options.save(new QuestionOption(question, option.text(), option.correct())));
         options.flush();
         return ApiResponse.success("Question created", Map.of("id", question.getId()));
