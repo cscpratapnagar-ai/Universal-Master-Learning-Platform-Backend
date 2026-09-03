@@ -17,6 +17,9 @@ import jakarta.validation.Valid;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -34,6 +37,21 @@ public class StudentAssessmentController {
                                        AssessmentAnswerRepository answers, UserRepository users) {
         this.assessments=assessments; this.questions=questions; this.options=options;
         this.attempts=attempts; this.answers=answers; this.users=users;
+    }
+
+    @GetMapping("/lessons/{lessonId}")
+    @Transactional(readOnly = true)
+    public ApiResponse<List<Map<String,Object>>> forLesson(@PathVariable UUID lessonId) {
+        var data = assessments.findByLessonId(lessonId).stream().map(this::assessmentView).toList();
+        return ApiResponse.success("Lesson assessments retrieved", data);
+    }
+
+    @GetMapping("/{assessmentId}")
+    @Transactional(readOnly = true)
+    public ApiResponse<Map<String,Object>> get(@PathVariable UUID assessmentId) {
+        var assessment = assessments.findById(assessmentId)
+                .orElseThrow(() -> new EntityNotFoundException("Assessment not found"));
+        return ApiResponse.success("Assessment retrieved", assessmentView(assessment));
     }
 
     @PostMapping("/{assessmentId}/submit")
@@ -79,6 +97,33 @@ public class StudentAssessmentController {
 
         return ApiResponse.success("Assessment submitted",new AssessmentResultResponse(
                 attempt.getId(),score,passed,correctAnswers,assessmentQuestions.size()));
+    }
+
+    private Map<String,Object> assessmentView(com.masterlearning.platform.modules.assessment.entity.Assessment assessment) {
+        List<Map<String,Object>> questionViews = questions.findByAssessmentId(assessment.getId()).stream().map(question -> {
+            List<Map<String,Object>> optionViews = options.findByQuestionId(question.getId()).stream().map(option -> {
+                Map<String,Object> view = new LinkedHashMap<>();
+                view.put("id", option.getId());
+                view.put("optionText", option.getOptionText());
+                return view;
+            }).toList();
+            Map<String,Object> view = new LinkedHashMap<>();
+            view.put("id", question.getId());
+            view.put("questionText", question.getQuestionText());
+            view.put("questionType", question.getQuestionType());
+            view.put("points", question.getPoints());
+            view.put("options", optionViews);
+            return view;
+        }).toList();
+
+        Map<String,Object> view = new LinkedHashMap<>();
+        view.put("id", assessment.getId());
+        view.put("title", assessment.getTitle());
+        view.put("level", assessment.getAssessmentLevel());
+        view.put("passingScore", assessment.getPassingScore());
+        view.put("maxAttempts", assessment.getMaxAttempts());
+        view.put("questions", questionViews);
+        return view;
     }
 
     private String masteryLevel(int score){
