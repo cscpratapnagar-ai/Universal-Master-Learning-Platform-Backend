@@ -10,10 +10,13 @@ import com.masterlearning.platform.modules.assessment.repository.AssessmentAttem
 import com.masterlearning.platform.modules.assessment.repository.AssessmentRepository;
 import com.masterlearning.platform.modules.assessment.repository.QuestionOptionRepository;
 import com.masterlearning.platform.modules.assessment.repository.QuestionRepository;
+import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
+import com.masterlearning.platform.modules.course.repository.LessonRepository;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,17 +34,23 @@ public class StudentAssessmentController {
     private final AssessmentAttemptRepository attempts;
     private final AssessmentAnswerRepository answers;
     private final UserRepository users;
+    private final EnrollmentRepository enrollments;
+    private final LessonRepository lessons;
 
     public StudentAssessmentController(AssessmentRepository assessments, QuestionRepository questions,
                                        QuestionOptionRepository options, AssessmentAttemptRepository attempts,
-                                       AssessmentAnswerRepository answers, UserRepository users) {
+                                       AssessmentAnswerRepository answers, UserRepository users,
+                                       EnrollmentRepository enrollments, LessonRepository lessons) {
         this.assessments=assessments; this.questions=questions; this.options=options;
         this.attempts=attempts; this.answers=answers; this.users=users;
+        this.enrollments=enrollments; this.lessons=lessons;
     }
 
     @GetMapping("/lessons/{lessonId}")
     @Transactional(readOnly = true)
     public ApiResponse<List<Map<String,Object>>> forLesson(@PathVariable UUID lessonId) {
+        var lesson = lessons.findById(lessonId).orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
+        requireEnrollment(lesson.getModule().getCourse().getId());
         var data = assessments.findByLessonId(lessonId).stream().map(this::assessmentView).toList();
         return ApiResponse.success("Lesson assessments retrieved", data);
     }
@@ -51,6 +60,7 @@ public class StudentAssessmentController {
     public ApiResponse<Map<String,Object>> get(@PathVariable UUID assessmentId) {
         var assessment = assessments.findById(assessmentId)
                 .orElseThrow(() -> new EntityNotFoundException("Assessment not found"));
+        requireEnrollment(assessment.getCourse().getId());
         return ApiResponse.success("Assessment retrieved", assessmentView(assessment));
     }
 
@@ -60,6 +70,7 @@ public class StudentAssessmentController {
                                                           @Valid @RequestBody SubmitAssessmentRequest request) {
         var assessment=assessments.findById(assessmentId).orElseThrow(()->new EntityNotFoundException("Assessment not found"));
         UUID currentUserId=SecurityUtils.getCurrentUserId();
+        requireEnrollment(assessment.getCourse().getId());
         var user=users.findById(currentUserId).orElseThrow(()->new EntityNotFoundException("Current user not found"));
 
         long previousAttempts=attempts.countByAssessmentIdAndUserId(assessmentId,currentUserId);
@@ -97,6 +108,13 @@ public class StudentAssessmentController {
 
         return ApiResponse.success("Assessment submitted",new AssessmentResultResponse(
                 attempt.getId(),score,passed,correctAnswers,assessmentQuestions.size()));
+    }
+
+    private void requireEnrollment(UUID courseId) {
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        if (!enrollments.existsByCourseIdAndUserId(courseId, currentUserId)) {
+            throw new AccessDeniedException("You are not enrolled in this course");
+        }
     }
 
     private Map<String,Object> assessmentView(com.masterlearning.platform.modules.assessment.entity.Assessment assessment) {
