@@ -116,12 +116,19 @@ public class StudentAssessmentController {
             return view;
         }).toList();
 
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        long attemptCount = attempts.countByAssessmentIdAndUserId(assessment.getId(), currentUserId);
+        boolean passed = attempts.findTopByAssessmentIdAndUserIdAndPassedTrueOrderBySubmittedAtDesc(
+                assessment.getId(), currentUserId).isPresent();
+
         Map<String,Object> view = new LinkedHashMap<>();
         view.put("id", assessment.getId());
         view.put("title", assessment.getTitle());
         view.put("level", assessment.getAssessmentLevel());
         view.put("passingScore", assessment.getPassingScore());
         view.put("maxAttempts", assessment.getMaxAttempts());
+        view.put("attemptsUsed", attemptCount);
+        view.put("passed", passed);
         view.put("questions", questionViews);
         return view;
     }
