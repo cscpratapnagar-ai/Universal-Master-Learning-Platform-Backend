@@ -1,5 +1,7 @@
--- Repair the demo learner enrollment using stable business identity rather than
--- relying only on seeded UUID values. This is idempotent and preserves progress.
+-- Repair the local demo learner enrollment using stable business identity.
+-- This is idempotent and preserves any existing progress.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 INSERT INTO course_enrollments (
     id,
     course_id,
