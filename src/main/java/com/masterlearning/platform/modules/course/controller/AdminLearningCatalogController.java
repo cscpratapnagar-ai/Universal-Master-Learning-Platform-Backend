@@ -1,8 +1,10 @@
 package com.masterlearning.platform.modules.course.controller;
 
 import com.masterlearning.platform.common.api.ApiResponse;
+import com.masterlearning.platform.modules.course.entity.LessonPrerequisite;
 import com.masterlearning.platform.modules.course.repository.CourseModuleRepository;
 import com.masterlearning.platform.modules.course.repository.CourseRepository;
+import com.masterlearning.platform.modules.course.repository.LessonPrerequisiteRepository;
 import com.masterlearning.platform.modules.course.repository.LessonRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,13 +22,16 @@ public class AdminLearningCatalogController {
     private final CourseRepository courses;
     private final CourseModuleRepository modules;
     private final LessonRepository lessons;
+    private final LessonPrerequisiteRepository prerequisites;
 
     public AdminLearningCatalogController(CourseRepository courses,
                                            CourseModuleRepository modules,
-                                           LessonRepository lessons) {
+                                           LessonRepository lessons,
+                                           LessonPrerequisiteRepository prerequisites) {
         this.courses = courses;
         this.modules = modules;
         this.lessons = lessons;
+        this.prerequisites = prerequisites;
     }
 
     @GetMapping("/catalog")
@@ -41,6 +46,9 @@ public class AdminLearningCatalogController {
                     view.put("title", lesson.getTitle());
                     view.put("sortOrder", lesson.getSortOrder());
                     view.put("completionMode", lesson.getCompletionMode());
+                    view.put("prerequisiteLessonIds", prerequisites.findByIdLessonId(lesson.getId()).stream()
+                            .map(LessonPrerequisite::getPrerequisiteLessonId)
+                            .toList());
                     return view;
                 }).toList();
 
