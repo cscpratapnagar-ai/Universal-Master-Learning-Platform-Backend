@@ -7,6 +7,7 @@ import com.masterlearning.platform.modules.course.repository.EnrollmentRepositor
 import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
@@ -28,6 +29,7 @@ public class StudentCourseController {
 
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ApiResponse<List<Map<String, Object>>> myCourses() {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
 
@@ -48,6 +50,7 @@ public class StudentCourseController {
 
     @GetMapping("/{courseId}")
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ApiResponse<CourseResponse> course(@PathVariable UUID courseId) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
 
