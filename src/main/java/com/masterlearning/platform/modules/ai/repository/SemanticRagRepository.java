@@ -24,12 +24,17 @@ public class SemanticRagRepository {
     }
 
     public List<SemanticChunk> search(UUID courseId, List<Double> embedding, int limit) {
-        String sql = "SELECT lesson_id, content, 1 - (embedding <=> ?::vector) AS relevance "
-                + "FROM ai_tutor_chunks WHERE course_id = ? "
-                + "ORDER BY embedding <=> ?::vector LIMIT ?";
+        String sql = "SELECT c.lesson_id, l.title, c.content, 1 - (c.embedding <=> ?::vector) AS relevance "
+                + "FROM ai_tutor_chunks c JOIN lessons l ON l.id = c.lesson_id "
+                + "WHERE c.course_id = ? "
+                + "ORDER BY c.embedding <=> ?::vector LIMIT ?";
         String vector = vectorLiteral(embedding);
         return jdbcTemplate.query(sql,
-                (rs, rowNum) -> new SemanticChunk(rs.getObject("lesson_id", UUID.class), rs.getString("content"), rs.getDouble("relevance")),
+                (rs, rowNum) -> new SemanticChunk(
+                        rs.getObject("lesson_id", UUID.class),
+                        rs.getString("title"),
+                        rs.getString("content"),
+                        rs.getDouble("relevance")),
                 vector, courseId, vector, limit);
     }
 
@@ -43,5 +48,5 @@ public class SemanticRagRepository {
     }
 
     public record ChunkRow(int index, String content, List<Double> embedding) {}
-    public record SemanticChunk(UUID lessonId, String content, double relevance) {}
+    public record SemanticChunk(UUID lessonId, String lessonTitle, String content, double relevance) {}
 }
