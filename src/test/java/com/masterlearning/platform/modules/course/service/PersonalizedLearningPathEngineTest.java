@@ -22,4 +22,14 @@ class PersonalizedLearningPathEngineTest {
         assertEquals("REMEDIATION", r.learnerState());
         assertEquals("REMEDIATE", r.path().getFirst().action());
     }
+
+    @Test void highMasteryCreatesAccelerationPath() {
+        var lesson = org.mockito.Mockito.mock(com.masterlearning.platform.modules.course.entity.Lesson.class);
+        UUID id = UUID.randomUUID();
+        org.mockito.Mockito.when(lesson.getId()).thenReturn(id);
+        org.mockito.Mockito.when(lesson.getTitle()).thenReturn("Lesson 1");
+        var r = engine.build(UUID.randomUUID(), List.of(lesson), List.of(), Set.of(), 90);
+        assertEquals("ACCELERATED", r.learnerState());
+        assertEquals("ACCELERATE", r.path().getFirst().action());
+    }
 }
