@@ -9,7 +9,6 @@ import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -27,7 +26,6 @@ public class GroundedTutorController {
 
     @PostMapping("/grounded-respond")
     @PreAuthorize("isAuthenticated()")
-    @Transactional(readOnly = true)
     public ApiResponse<GroundedTutorResponse> respond(
             @PathVariable UUID enrollmentId,
             @RequestBody TutorRequest request) {
