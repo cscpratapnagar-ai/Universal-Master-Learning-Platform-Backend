@@ -1,8 +1,10 @@
 package com.masterlearning.platform.modules.ai.service;
 
 import com.masterlearning.platform.modules.ai.dto.response.LearnerTutorContext;
-import com.masterlearning.platform.modules.learning.engine.LearnerProfileEngine;
-import com.masterlearning.platform.modules.learning.dto.response.LearnerProfileResponse;
+import com.masterlearning.platform.modules.assessment.entity.AssessmentAttempt;
+import com.masterlearning.platform.modules.assessment.repository.AssessmentAttemptRepository;
+import com.masterlearning.platform.modules.course.entity.Enrollment;
+import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -10,30 +12,42 @@ import java.util.UUID;
 
 @Service
 public class LearnerTutorContextService {
-    private final LearnerProfileEngine profileEngine;
+    private final EnrollmentRepository enrollments;
+    private final AssessmentAttemptRepository attempts;
 
-    public LearnerTutorContextService(LearnerProfileEngine profileEngine) {
-        this.profileEngine = profileEngine;
+    public LearnerTutorContextService(EnrollmentRepository enrollments, AssessmentAttemptRepository attempts) {
+        this.enrollments = enrollments;
+        this.attempts = attempts;
     }
 
     public LearnerTutorContext build(UUID enrollmentId) {
-        LearnerProfileResponse profile = profileEngine.build(enrollmentId);
-        double mastery = profile.masteryScore();
-        String style = mastery < 50 ? "SIMPLE_STEP_BY_STEP"
-                : mastery >= 85 ? "CHALLENGE_AND_ACCELERATE"
-                : "BALANCED_EXPLANATION";
-        String focus = profile.focusArea() == null || profile.focusArea().isBlank()
-                ? "No specific focus area identified"
-                : profile.focusArea();
-        return new LearnerTutorContext(
-                enrollmentId,
-                mastery,
-                profile.learnerState(),
-                profile.riskLevel(),
-                profile.momentum(),
-                List.of(focus),
-                profile.recommendedNextAction(),
-                style
-        );
+        Enrollment enrollment = enrollments.findById(enrollmentId).orElseThrow();
+        UUID userId = enrollment.getUser().getId();
+        UUID courseId = enrollment.getCourse().getId();
+        List<AssessmentAttempt> history = attempts.findByCourseIdAndUserIdOrderBySubmittedAtDesc(courseId, userId);
+
+        double mastery = history.stream().mapToInt(AssessmentAttempt::getScore).average().orElse(0.0);
+        String state = mastery >= 85 ? "ADVANCED" : mastery >= 70 ? "PROFICIENT" : mastery >= 50 ? "DEVELOPING" : "FOUNDATIONAL";
+        String risk = mastery < 50 ? "HIGH" : mastery < 70 ? "MEDIUM" : "LOW";
+        String momentum = momentum(history);
+        String style = mastery < 50 ? "SIMPLE_STEP_BY_STEP" : mastery >= 85 ? "CHALLENGE_AND_ACCELERATE" : "BALANCED_EXPLANATION";
+        String weakArea = history.stream().filter(a -> a.getScore() < 60).findFirst()
+                .map(a -> a.getAssessment().getTitle()).orElse("No specific weak area identified");
+        String action = mastery < 50 ? "REMEDIATE" : mastery >= 85 ? "ACCELERATE" : "CONTINUE_LEARNING";
+
+        return new LearnerTutorContext(enrollmentId, round(mastery), state, risk, momentum,
+                List.of(weakArea), action, style);
     }
+
+    private String momentum(List<AssessmentAttempt> history) {
+        if (history.size() < 2) return history.isEmpty() ? "STARTING" : "BUILDING";
+        int latest = history.get(0).getScore();
+        int previous = history.get(1).getScore();
+        if (latest >= previous + 10) return "EXCELLENT";
+        if (latest > previous) return "ON_TRACK";
+        if (latest == previous) return "BUILDING";
+        return "DECLINING";
+    }
+
+    private double round(double value) { return Math.round(value * 100.0) / 100.0; }
 }
