@@ -5,6 +5,7 @@ import com.masterlearning.platform.modules.course.entity.CourseModule;
 import com.masterlearning.platform.modules.course.entity.Lesson;
 import com.masterlearning.platform.modules.course.repository.CourseModuleRepository;
 import com.masterlearning.platform.modules.course.repository.LessonRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -15,21 +16,26 @@ import java.util.UUID;
 public class SemanticRagService {
     private static final int CHUNK_SIZE = 1200;
     private static final int CHUNK_OVERLAP = 180;
+    private static final int DEFAULT_LIMIT = 5;
+    private static final int MAX_LIMIT = 10;
 
     private final CourseModuleRepository modules;
     private final LessonRepository lessons;
     private final OpenAiEmbeddingService embeddings;
     private final SemanticRagRepository repository;
+    private final double minimumRelevance;
 
     public SemanticRagService(
             CourseModuleRepository modules,
             LessonRepository lessons,
             OpenAiEmbeddingService embeddings,
-            SemanticRagRepository repository) {
+            SemanticRagRepository repository,
+            @Value("${OPENAI_RAG_MIN_RELEVANCE:0.35}") double minimumRelevance) {
         this.modules = modules;
         this.lessons = lessons;
         this.embeddings = embeddings;
         this.repository = repository;
+        this.minimumRelevance = Math.max(0.0, Math.min(1.0, minimumRelevance));
     }
 
     public IndexResult indexCourse(UUID courseId) {
@@ -53,7 +59,11 @@ public class SemanticRagService {
     }
 
     public List<SemanticRagRepository.SemanticChunk> search(UUID courseId, String query, int limit) {
-        return repository.search(courseId, embeddings.embed(query), limit);
+        if (query == null || query.isBlank()) return List.of();
+        int safeLimit = limit <= 0 ? DEFAULT_LIMIT : Math.min(limit, MAX_LIMIT);
+        return repository.search(courseId, embeddings.embed(query.trim()), safeLimit).stream()
+                .filter(chunk -> chunk.relevance() >= minimumRelevance)
+                .toList();
     }
 
     public long indexedChunkCount(UUID courseId) {
