@@ -23,6 +23,6 @@ public class AssessmentAttempt extends BaseEntity {
     public AssessmentAttempt(Assessment a, User u, int attemptNumber, int score, boolean passed, String masteryLevel){
         this.assessment=a; this.user=u; this.attemptNumber=attemptNumber; this.score=score; this.passed=passed; this.masteryLevel=masteryLevel; this.submittedAt=Instant.now();
     }
-    public UUID getId(){return id;} public int getAttemptNumber(){return attemptNumber;} public int getScore(){return score;}
+    public UUID getId(){return id;} public Assessment getAssessment(){return assessment;} public int getAttemptNumber(){return attemptNumber;} public int getScore(){return score;}
     public boolean isPassed(){return passed;} public String getMasteryLevel(){return masteryLevel;} public Instant getSubmittedAt(){return submittedAt;}
 }
