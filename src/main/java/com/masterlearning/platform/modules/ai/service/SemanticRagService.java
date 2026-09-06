@@ -39,6 +39,10 @@ public class SemanticRagService {
         this.minimumRelevance = Math.max(0.0, Math.min(1.0, minimumRelevance));
     }
 
+    public boolean isEmbeddingProviderConfigured() {
+        return embeddings.isConfigured();
+    }
+
     public IndexResult indexCourse(UUID courseId) {
         int lessonsIndexed = 0;
         int chunksIndexed = 0;
