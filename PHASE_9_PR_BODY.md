@@ -1,0 +1,1 @@
+Recommendation & Next-Best Learning Engine: explainable, prerequisite-aware, knowledge-gap-aware, mastery-aware recommendations with alternatives and ownership security.
