@@ -7,11 +7,17 @@ import com.masterlearning.platform.modules.course.entity.Enrollment;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class LearnerTutorContextService {
+    private static final int WEAK_AREA_THRESHOLD = 60;
+    private static final int MAX_WEAK_AREAS = 5;
+
     private final EnrollmentRepository enrollments;
     private final AssessmentAttemptRepository attempts;
 
@@ -31,12 +37,39 @@ public class LearnerTutorContextService {
         String risk = mastery < 50 ? "HIGH" : mastery < 70 ? "MEDIUM" : "LOW";
         String momentum = momentum(history);
         String style = mastery < 50 ? "SIMPLE_STEP_BY_STEP" : mastery >= 85 ? "CHALLENGE_AND_ACCELERATE" : "BALANCED_EXPLANATION";
-        String weakArea = history.stream().filter(a -> a.getScore() < 60).findFirst()
-                .map(a -> a.getAssessment().getTitle()).orElse("No specific weak area identified");
+        List<String> weakAreas = weakAreas(history);
         String action = mastery < 50 ? "REMEDIATE" : mastery >= 85 ? "ACCELERATE" : "CONTINUE_LEARNING";
 
         return new LearnerTutorContext(enrollmentId, round(mastery), state, risk, momentum,
-                List.of(weakArea), action, style);
+                weakAreas, action, style);
+    }
+
+    /**
+     * Derives tutor focus areas from the latest available weak assessment evidence.
+     * This remains assessment-title based because the current Question model has no
+     * concept/skill taxonomy; it deliberately avoids inventing concept labels.
+     */
+    static List<String> weakAreas(List<AssessmentAttempt> history) {
+        if (history == null || history.isEmpty()) {
+            return List.of("No specific weak area identified");
+        }
+
+        Set<String> areas = new LinkedHashSet<>();
+        Set<UUID> assessed = new LinkedHashSet<>();
+        for (AssessmentAttempt attempt : history) {
+            if (attempt == null || attempt.getAssessment() == null || !assessed.add(attempt.getAssessment().getId())) {
+                continue;
+            }
+            if (attempt.getScore() < WEAK_AREA_THRESHOLD) {
+                String title = attempt.getAssessment().getTitle();
+                if (title != null && !title.isBlank()) {
+                    areas.add(title.trim());
+                }
+            }
+            if (areas.size() >= MAX_WEAK_AREAS) break;
+        }
+
+        return areas.isEmpty() ? List.of("No specific weak area identified") : new ArrayList<>(areas);
     }
 
     private String momentum(List<AssessmentAttempt> history) {
