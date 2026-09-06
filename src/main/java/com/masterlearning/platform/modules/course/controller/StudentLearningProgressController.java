@@ -3,11 +3,12 @@ package com.masterlearning.platform.modules.course.controller;
 import com.masterlearning.platform.common.api.ApiResponse;
 import com.masterlearning.platform.modules.assessment.repository.AssessmentAttemptRepository;
 import com.masterlearning.platform.modules.assessment.repository.AssessmentRepository;
+import com.masterlearning.platform.modules.course.entity.Enrollment;
 import com.masterlearning.platform.modules.course.repository.CourseModuleRepository;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import com.masterlearning.platform.modules.course.repository.LearningActivityRepository;
 import com.masterlearning.platform.modules.course.repository.LessonProgressRepository;
-import com.masterlearning.platform.course.repository.LessonRepository;
+import com.masterlearning.platform.modules.course.repository.LessonRepository;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
@@ -56,13 +57,13 @@ public class StudentLearningProgressController {
     @PreAuthorize("isAuthenticated()")
     @Transactional(readOnly = true)
     public ApiResponse<Map<String, Object>> progress(@PathVariable UUID enrollmentId) {
-        var enrollment = ownedEnrollment(enrollmentId);
+        Enrollment enrollment = ownedEnrollment(enrollmentId);
         UUID courseId = enrollment.getCourse().getId();
         UUID userId = SecurityUtils.getCurrentUserId();
 
         List<UUID> lessonIds = modules.findByCourseIdOrderBySortOrderAsc(courseId).stream()
                 .flatMap(module -> lessons.findByModuleIdOrderBySortOrderAsc(module.getId()).stream())
-                .map(com.masterlearning.platform.modules.course.entity.Lesson::getId)
+                .map(lesson -> lesson.getId())
                 .toList();
 
         long totalLessons = lessonIds.size();
@@ -137,8 +138,8 @@ public class StudentLearningProgressController {
         return "NOT_ASSESSED";
     }
 
-    private com.masterlearning.platform.modules.course.entity.Enrollment ownedEnrollment(UUID enrollmentId) {
-        var enrollment = enrollments.findById(enrollmentId)
+    private Enrollment ownedEnrollment(UUID enrollmentId) {
+        Enrollment enrollment = enrollments.findById(enrollmentId)
                 .orElseThrow(() -> new EntityNotFoundException("Enrollment not found"));
 
         if (!enrollment.getUser().getId().equals(SecurityUtils.getCurrentUserId())) {
