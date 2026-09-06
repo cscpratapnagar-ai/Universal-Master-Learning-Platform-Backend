@@ -28,6 +28,10 @@ public class OpenAiEmbeddingService {
         this.client = RestClient.builder().baseUrl("https://api.openai.com/v1").build();
     }
 
+    public boolean isConfigured() {
+        return !apiKey.isBlank();
+    }
+
     public List<Double> embed(String text) {
         if (apiKey.isBlank()) {
             throw new IllegalStateException("OPENAI_API_KEY is not configured");
