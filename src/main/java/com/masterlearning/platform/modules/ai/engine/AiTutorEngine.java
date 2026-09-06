@@ -40,6 +40,6 @@ public class AiTutorEngine {
 
         String learnerState = mastery < 50 ? "FOUNDATION" : mastery >= 85 ? "ADVANCED" : "DEVELOPING";
         if (progressPercent == 100) learnerState = "COURSE_COMPLETE";
-        return new AiTutorResponse(enrollmentId, intent, learnerState, response, nextAction, rationale, true);
+        return new AiTutorResponse(enrollmentId, intent, learnerState, response, nextAction, rationale, false);
     }
 }
