@@ -1,8 +1,10 @@
 package com.masterlearning.platform.modules.course.controller;
 
 import com.masterlearning.platform.common.api.ApiResponse;
+import com.masterlearning.platform.modules.assessment.entity.AssessmentAttempt;
 import com.masterlearning.platform.modules.assessment.repository.AssessmentAttemptRepository;
 import com.masterlearning.platform.modules.assessment.repository.AssessmentRepository;
+import com.masterlearning.platform.modules.assessment.service.MasteryEngine;
 import com.masterlearning.platform.modules.course.entity.Enrollment;
 import com.masterlearning.platform.modules.course.repository.CourseModuleRepository;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
@@ -23,6 +25,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/student/learning")
@@ -35,6 +39,7 @@ public class StudentLearningProgressController {
     private final LearningActivityRepository activities;
     private final AssessmentRepository assessments;
     private final AssessmentAttemptRepository attempts;
+    private final MasteryEngine masteryEngine;
 
     public StudentLearningProgressController(
             EnrollmentRepository enrollments,
@@ -43,7 +48,8 @@ public class StudentLearningProgressController {
             LessonProgressRepository progress,
             LearningActivityRepository activities,
             AssessmentRepository assessments,
-            AssessmentAttemptRepository attempts) {
+            AssessmentAttemptRepository attempts,
+            MasteryEngine masteryEngine) {
         this.enrollments = enrollments;
         this.modules = modules;
         this.lessons = lessons;
@@ -51,6 +57,7 @@ public class StudentLearningProgressController {
         this.activities = activities;
         this.assessments = assessments;
         this.attempts = attempts;
+        this.masteryEngine = masteryEngine;
     }
 
     @GetMapping("/enrollments/{enrollmentId}/progress")
@@ -76,21 +83,30 @@ public class StudentLearningProgressController {
         long activeLessons = activities.activeLessonCount(enrollmentId);
 
         var courseAssessments = assessments.findByCourseId(courseId);
+        Map<UUID, AssessmentAttempt> latestPassedAttempts = attempts
+                .findByCourseIdAndUserIdOrderBySubmittedAtDesc(courseId, userId).stream()
+                .filter(AssessmentAttempt::isPassed)
+                .collect(Collectors.toMap(
+                        attempt -> attempt.getAssessment().getId(),
+                        Function.identity(),
+                        (first, ignored) -> first,
+                        LinkedHashMap::new));
+
         List<Map<String, Object>> assessmentResults = courseAssessments.stream()
-                .map(assessment -> attempts
-                        .findTopByAssessmentIdAndUserIdAndPassedTrueOrderBySubmittedAtDesc(assessment.getId(), userId)
-                        .map(attempt -> {
-                            Map<String, Object> result = new LinkedHashMap<>();
-                            result.put("assessmentId", assessment.getId());
-                            result.put("lessonId", assessment.getLesson() == null ? null : assessment.getLesson().getId());
-                            result.put("title", assessment.getTitle());
-                            result.put("score", attempt.getScore());
-                            result.put("masteryLevel", attempt.getMasteryLevel());
-                            result.put("passed", true);
-                            result.put("submittedAt", attempt.getSubmittedAt());
-                            return result;
-                        })
-                        .orElse(null))
+                .map(assessment -> {
+                    AssessmentAttempt attempt = latestPassedAttempts.get(assessment.getId());
+                    if (attempt == null) return null;
+
+                    Map<String, Object> result = new LinkedHashMap<>();
+                    result.put("assessmentId", assessment.getId());
+                    result.put("lessonId", assessment.getLesson() == null ? null : assessment.getLesson().getId());
+                    result.put("title", assessment.getTitle());
+                    result.put("score", attempt.getScore());
+                    result.put("masteryLevel", masteryEngine.masteryLevel(attempt.getScore()));
+                    result.put("passed", true);
+                    result.put("submittedAt", attempt.getSubmittedAt());
+                    return result;
+                })
                 .filter(result -> result != null)
                 .toList();
 
@@ -101,14 +117,8 @@ public class StudentLearningProgressController {
                 .average()
                 .orElse(0.0);
 
-        String masteryLevel = masteryLevel(masteryScore);
-        String momentum = completionPercent >= 80 && masteryScore >= 80
-                ? "EXCELLENT"
-                : completionPercent >= 50 || masteryScore >= 70
-                ? "ON_TRACK"
-                : completedLessons > 0
-                ? "BUILDING"
-                : "STARTING";
+        String masteryLevel = masteryEngine.masteryLevel(masteryScore);
+        String momentum = masteryEngine.momentum(completionPercent, masteryScore, completedLessons);
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("enrollmentId", enrollmentId);
@@ -128,14 +138,6 @@ public class StudentLearningProgressController {
         data.put("assessments", assessmentResults);
 
         return ApiResponse.success("Learning progress and mastery retrieved", data);
-    }
-
-    private String masteryLevel(double score) {
-        if (score >= 85) return "MASTERED";
-        if (score >= 70) return "PROFICIENT";
-        if (score >= 50) return "DEVELOPING";
-        if (score > 0) return "EMERGING";
-        return "NOT_ASSESSED";
     }
 
     private Enrollment ownedEnrollment(UUID enrollmentId) {
