@@ -100,7 +100,7 @@ public class StudentAssessmentController {
 
         int score=(int)Math.round(earnedPoints*100.0/totalPoints);
         boolean passed=score>=assessment.getPassingScore();
-        String masteryLevel=masteryEngine.masteryLevel(score);
+        String masteryLevel=masteryEngine.assessmentMasteryLevel(score);
         var attempt=attempts.save(new com.masterlearning.platform.modules.assessment.entity.AssessmentAttempt(
                 assessment,user,(int)previousAttempts+1,score,passed,masteryLevel));
 
