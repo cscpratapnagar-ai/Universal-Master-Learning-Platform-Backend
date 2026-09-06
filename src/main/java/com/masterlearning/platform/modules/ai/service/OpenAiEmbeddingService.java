@@ -11,6 +11,8 @@ import java.util.List;
 
 @Service
 public class OpenAiEmbeddingService {
+    private static final int VECTOR_DIMENSIONS = 1536;
+
     private final ObjectMapper objectMapper;
     private final RestClient client;
     private final String apiKey;
@@ -30,12 +32,15 @@ public class OpenAiEmbeddingService {
         if (apiKey.isBlank()) {
             throw new IllegalStateException("OPENAI_API_KEY is not configured");
         }
+        if (text == null || text.isBlank()) {
+            throw new IllegalArgumentException("Embedding input must not be blank");
+        }
         try {
             String response = client.post()
                     .uri("/embeddings")
                     .contentType(MediaType.APPLICATION_JSON)
                     .header("Authorization", "Bearer " + apiKey)
-                    .body(java.util.Map.of("model", model, "input", text))
+                    .body(java.util.Map.of("model", model, "input", text.trim()))
                     .retrieve()
                     .body(String.class);
             JsonNode root = objectMapper.readTree(response);
@@ -43,10 +48,15 @@ public class OpenAiEmbeddingService {
             if (!vector.isArray() || vector.isEmpty()) {
                 throw new IllegalStateException("Embedding response was empty");
             }
+            if (vector.size() != VECTOR_DIMENSIONS) {
+                throw new IllegalStateException(
+                        "Embedding dimension " + vector.size() + " does not match pgvector dimension " + VECTOR_DIMENSIONS);
+            }
             java.util.ArrayList<Double> result = new java.util.ArrayList<>(vector.size());
             vector.forEach(node -> result.add(node.asDouble()));
             return result;
         } catch (Exception ex) {
+            if (ex instanceof IllegalStateException) throw (IllegalStateException) ex;
             throw new IllegalStateException("Unable to create embedding", ex);
         }
     }
