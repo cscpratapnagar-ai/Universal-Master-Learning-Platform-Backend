@@ -17,6 +17,13 @@ public class MasteryEngine {
         return "NOT_ASSESSED";
     }
 
+    public String assessmentMasteryLevel(int score) {
+        if (score >= 90) return "MASTERED";
+        if (score >= 70) return "PROFICIENT";
+        if (score >= 50) return "DEVELOPING";
+        return "NEEDS_REVIEW";
+    }
+
     public String assessmentOutcome(int score, int passingScore) {
         return score >= passingScore ? "PASSED" : "NEEDS_REVIEW";
     }
