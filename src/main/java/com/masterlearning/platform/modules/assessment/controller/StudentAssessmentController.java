@@ -10,6 +10,7 @@ import com.masterlearning.platform.modules.assessment.repository.AssessmentAttem
 import com.masterlearning.platform.modules.assessment.repository.AssessmentRepository;
 import com.masterlearning.platform.modules.assessment.repository.QuestionOptionRepository;
 import com.masterlearning.platform.modules.assessment.repository.QuestionRepository;
+import com.masterlearning.platform.modules.assessment.service.MasteryEngine;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import com.masterlearning.platform.modules.course.repository.LessonRepository;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
@@ -36,14 +37,16 @@ public class StudentAssessmentController {
     private final UserRepository users;
     private final EnrollmentRepository enrollments;
     private final LessonRepository lessons;
+    private final MasteryEngine masteryEngine;
 
     public StudentAssessmentController(AssessmentRepository assessments, QuestionRepository questions,
                                        QuestionOptionRepository options, AssessmentAttemptRepository attempts,
                                        AssessmentAnswerRepository answers, UserRepository users,
-                                       EnrollmentRepository enrollments, LessonRepository lessons) {
+                                       EnrollmentRepository enrollments, LessonRepository lessons,
+                                       MasteryEngine masteryEngine) {
         this.assessments=assessments; this.questions=questions; this.options=options;
         this.attempts=attempts; this.answers=answers; this.users=users;
-        this.enrollments=enrollments; this.lessons=lessons;
+        this.enrollments=enrollments; this.lessons=lessons; this.masteryEngine=masteryEngine;
     }
 
     @GetMapping("/lessons/{lessonId}")
@@ -80,6 +83,8 @@ public class StudentAssessmentController {
         if(assessmentQuestions.isEmpty()) throw new IllegalArgumentException("Assessment has no questions");
 
         int totalPoints=assessmentQuestions.stream().mapToInt(Question::getPoints).sum();
+        if(totalPoints<=0) throw new IllegalArgumentException("Assessment question points must be greater than zero");
+
         int earnedPoints=0, correctAnswers=0;
         for(var question:assessmentQuestions){
             UUID selectedId=request.answers().get(question.getId());
@@ -95,7 +100,7 @@ public class StudentAssessmentController {
 
         int score=(int)Math.round(earnedPoints*100.0/totalPoints);
         boolean passed=score>=assessment.getPassingScore();
-        String masteryLevel=masteryLevel(score);
+        String masteryLevel=masteryEngine.masteryLevel(score);
         var attempt=attempts.save(new com.masterlearning.platform.modules.assessment.entity.AssessmentAttempt(
                 assessment,user,(int)previousAttempts+1,score,passed,masteryLevel));
 
@@ -149,12 +154,5 @@ public class StudentAssessmentController {
         view.put("passed", passed);
         view.put("questions", questionViews);
         return view;
-    }
-
-    private String masteryLevel(int score){
-        if(score>=90) return "MASTERED";
-        if(score>=70) return "PROFICIENT";
-        if(score>=50) return "DEVELOPING";
-        return "NEEDS_REVIEW";
     }
 }
