@@ -89,22 +89,17 @@ public class GroundedTutorEngine {
     }
 
     private List<SourceChunk> retrieve(UUID courseId, String question) {
-        if (apiKey.isBlank()) {
-            return lexicalRetriever.retrieve(courseId, question, 5).stream()
-                    .map(c -> new SourceChunk(c.lessonId(), c.lessonTitle(), c.content(), c.relevance()))
-                    .toList();
-        }
-        try {
-            List<SemanticRagRepository.SemanticChunk> semantic = semanticRag.search(courseId, question, 5);
-            if (!semantic.isEmpty()) {
-                Map<UUID, String> titles = lexicalRetriever.retrieve(courseId, "", Integer.MAX_VALUE).stream()
-                        .collect(Collectors.toMap(RagContextRetriever.Chunk::lessonId, RagContextRetriever.Chunk::lessonTitle, (a, b) -> a));
-                return semantic.stream()
-                        .map(c -> new SourceChunk(c.lessonId(), titles.getOrDefault(c.lessonId(), "Course lesson"), c.content(), c.relevance()))
-                        .toList();
+        if (!apiKey.isBlank()) {
+            try {
+                List<SemanticRagRepository.SemanticChunk> semantic = semanticRag.search(courseId, question, 5);
+                if (!semantic.isEmpty()) {
+                    return semantic.stream()
+                            .map(c -> new SourceChunk(c.lessonId(), c.lessonTitle(), c.content(), c.relevance()))
+                            .toList();
+                }
+            } catch (Exception ignored) {
+                // Safe fallback to lexical retrieval when semantic indexing is unavailable or stale.
             }
-        } catch (Exception ignored) {
-            // Safe fallback to lexical retrieval when semantic indexing is unavailable or stale.
         }
         return lexicalRetriever.retrieve(courseId, question, 5).stream()
                 .map(c -> new SourceChunk(c.lessonId(), c.lessonTitle(), c.content(), c.relevance()))
