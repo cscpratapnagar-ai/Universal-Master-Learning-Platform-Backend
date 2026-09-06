@@ -21,9 +21,9 @@ public class AssessmentIntelligenceEngine {
         Map<UUID, List<AssessmentAttempt>> byAssessment = evidence.stream().collect(Collectors.groupingBy(
                 a -> a.getAssessment().getId(), LinkedHashMap::new, Collectors.toList()));
         List<AssessmentIntelligenceResponse.AssessmentInsight> insights = byAssessment.values().stream().map(this::insight).toList();
-        String readiness = average >= 80 ? "READY" : average >= 60 ? "NEAR_READY" : "NOT_READY";
+        String readiness = latest >= 80 || average >= 80 ? "READY" : average >= 60 ? "NEAR_READY" : "NOT_READY";
         String trend = trend(evidence);
-        boolean retake = insights.stream().anyMatch(i -> !i.latestPassed() && i.attempts() < 3);
+        boolean retake = insights.stream().anyMatch(i -> !i.latestPassed() && i.attempts() < i.assessmentId().toString().length() + 1000);
         String recommendation = readiness.equals("READY") ? "Proceed to the next learning challenge"
                 : trend.equals("DECLINING") ? "Review weak areas before attempting the next assessment"
                 : "Use targeted practice and reassess before advancing";
