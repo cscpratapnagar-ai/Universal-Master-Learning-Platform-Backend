@@ -10,6 +10,7 @@ import com.masterlearning.platform.modules.ai.service.LearnerTutorContextService
 import com.masterlearning.platform.modules.ai.service.SemanticRagService;
 import com.masterlearning.platform.modules.ai.service.TutorConversationMemory;
 import com.masterlearning.platform.modules.ai.service.TutorPromptBuilder;
+import com.masterlearning.platform.modules.ai.service.TutorRetrievalReranker;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,7 @@ public class GroundedTutorEngine {
 
     private final RagContextRetriever lexicalRetriever;
     private final SemanticRagService semanticRag;
+    private final TutorRetrievalReranker reranker;
     private final LearnerTutorContextService learnerContextService;
     private final TutorConversationMemory conversationMemory;
     private final TutorPromptBuilder promptBuilder;
@@ -43,6 +45,7 @@ public class GroundedTutorEngine {
     public GroundedTutorEngine(
             RagContextRetriever lexicalRetriever,
             SemanticRagService semanticRag,
+            TutorRetrievalReranker reranker,
             LearnerTutorContextService learnerContextService,
             TutorConversationMemory conversationMemory,
             TutorPromptBuilder promptBuilder,
@@ -52,6 +55,7 @@ public class GroundedTutorEngine {
             @Value("${OPENAI_MODEL:gpt-5.6-luna}") String model) {
         this.lexicalRetriever = lexicalRetriever;
         this.semanticRag = semanticRag;
+        this.reranker = reranker;
         this.learnerContextService = learnerContextService;
         this.conversationMemory = conversationMemory;
         this.promptBuilder = promptBuilder;
@@ -137,6 +141,11 @@ public class GroundedTutorEngine {
                 .map(c -> new SourceChunk(c.lessonId(), c.lessonTitle(), c.content(), clamp(c.relevance()), c.content()))
                 .toList();
 
+        List<SourceChunk> candidates = merge(semantic, lexical);
+        return reranker.rerank(question, candidates, RETRIEVAL_LIMIT);
+    }
+
+    private List<SourceChunk> merge(List<SourceChunk> semantic, List<SourceChunk> lexical) {
         if (semantic.isEmpty()) return lexical;
         if (lexical.isEmpty()) return semantic;
 
@@ -158,7 +167,6 @@ public class GroundedTutorEngine {
                         combined));
             }
         }
-
         return merged.values().stream()
                 .sorted(Comparator.comparingDouble(RankedChunk::score).reversed())
                 .limit(RETRIEVAL_LIMIT)
@@ -178,7 +186,11 @@ public class GroundedTutorEngine {
         return Math.round(value * 100.0) / 100.0;
     }
 
-    private record SourceChunk(UUID lessonId, String lessonTitle, String content, double relevance, String contentKey) {}
+    private record SourceChunk(UUID lessonId, String lessonTitle, String content, double relevance, String contentKey)
+            implements TutorRetrievalReranker.Candidate {
+        @Override
+        public String lessonIdKey() { return lessonId.toString(); }
+    }
 
     private record RankedChunk(SourceChunk chunk, double score) {}
 }
