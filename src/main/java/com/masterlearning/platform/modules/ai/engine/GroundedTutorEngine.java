@@ -15,6 +15,9 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -22,6 +25,10 @@ import java.util.stream.Collectors;
 
 @Component
 public class GroundedTutorEngine {
+    private static final int RETRIEVAL_LIMIT = 5;
+    private static final double SEMANTIC_WEIGHT = 0.70;
+    private static final double LEXICAL_WEIGHT = 0.30;
+
     private final RagContextRetriever lexicalRetriever;
     private final SemanticRagService semanticRag;
     private final LearnerTutorContextService learnerContextService;
@@ -115,26 +122,63 @@ public class GroundedTutorEngine {
     }
 
     private List<SourceChunk> retrieve(UUID courseId, String question) {
+        List<SourceChunk> semantic = new ArrayList<>();
         if (!apiKey.isBlank()) {
             try {
-                List<SemanticRagRepository.SemanticChunk> semantic = semanticRag.search(courseId, question, 5);
-                if (!semantic.isEmpty()) {
-                    return semantic.stream()
-                            .map(c -> new SourceChunk(c.lessonId(), c.lessonTitle(), c.content(), c.relevance()))
-                            .toList();
-                }
-            } catch (Exception ignored) {
-                // Safe fallback to lexical retrieval when semantic indexing is unavailable or stale.
+                semantic = semanticRag.search(courseId, question, RETRIEVAL_LIMIT).stream()
+                        .map(c -> new SourceChunk(c.lessonId(), c.lessonTitle(), c.content(), clamp(c.relevance()), c.content()))
+                        .toList();
+            } catch (RuntimeException ignored) {
+                // Continue with lexical retrieval when semantic indexing/provider is unavailable.
             }
         }
-        return lexicalRetriever.retrieve(courseId, question, 5).stream()
-                .map(c -> new SourceChunk(c.lessonId(), c.lessonTitle(), c.content(), c.relevance()))
+
+        List<SourceChunk> lexical = lexicalRetriever.retrieve(courseId, question, RETRIEVAL_LIMIT).stream()
+                .map(c -> new SourceChunk(c.lessonId(), c.lessonTitle(), c.content(), clamp(c.relevance()), c.content()))
                 .toList();
+
+        if (semantic.isEmpty()) return lexical;
+        if (lexical.isEmpty()) return semantic;
+
+        Map<String, RankedChunk> merged = new LinkedHashMap<>();
+        for (SourceChunk chunk : semantic) {
+            String key = key(chunk);
+            merged.put(key, new RankedChunk(chunk, SEMANTIC_WEIGHT * chunk.relevance()));
+        }
+        for (SourceChunk chunk : lexical) {
+            String key = key(chunk);
+            RankedChunk existing = merged.get(key);
+            if (existing == null) {
+                merged.put(key, new RankedChunk(chunk, LEXICAL_WEIGHT * chunk.relevance()));
+            } else {
+                SourceChunk base = existing.chunk();
+                double combined = existing.score() + LEXICAL_WEIGHT * chunk.relevance();
+                merged.put(key, new RankedChunk(
+                        new SourceChunk(base.lessonId(), base.lessonTitle(), base.content(), clamp(combined), base.content()),
+                        combined));
+            }
+        }
+
+        return merged.values().stream()
+                .sorted(Comparator.comparingDouble(RankedChunk::score).reversed())
+                .limit(RETRIEVAL_LIMIT)
+                .map(RankedChunk::chunk)
+                .toList();
+    }
+
+    private String key(SourceChunk chunk) {
+        return chunk.lessonId() + ":" + Integer.toHexString(chunk.contentKey().hashCode());
+    }
+
+    private double clamp(double value) {
+        return Math.max(0.0, Math.min(1.0, value));
     }
 
     private double round(double value) {
         return Math.round(value * 100.0) / 100.0;
     }
 
-    private record SourceChunk(UUID lessonId, String lessonTitle, String content, double relevance) {}
+    private record SourceChunk(UUID lessonId, String lessonTitle, String content, double relevance, String contentKey) {}
+
+    private record RankedChunk(SourceChunk chunk, double score) {}
 }
