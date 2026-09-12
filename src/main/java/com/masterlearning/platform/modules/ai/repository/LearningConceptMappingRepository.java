@@ -77,4 +77,27 @@ public class LearningConceptMappingRepository {
         }, args.toArray());
         return result;
     }
+
+    public Map<UUID, List<UUID>> findDirectPrerequisiteIds(List<UUID> conceptIds) {
+        if (conceptIds == null || conceptIds.isEmpty()) return Map.of();
+        String placeholders = String.join(",", conceptIds.stream().map(id -> "?").toList());
+        String sql = "SELECT concept_id, prerequisite_concept_id FROM learning_concept_prerequisites "
+                + "WHERE concept_id IN (" + placeholders + ") ORDER BY concept_id, prerequisite_concept_id";
+        Map<UUID, List<UUID>> result = new LinkedHashMap<>();
+        jdbcTemplate.query(sql, rs -> {
+            UUID conceptId = rs.getObject("concept_id", UUID.class);
+            result.computeIfAbsent(conceptId, ignored -> new ArrayList<>())
+                    .add(rs.getObject("prerequisite_concept_id", UUID.class));
+        }, conceptIds.toArray());
+        return result;
+    }
+
+    public Map<UUID, String> findActiveConceptNames(List<UUID> conceptIds) {
+        if (conceptIds == null || conceptIds.isEmpty()) return Map.of();
+        String placeholders = String.join(",", conceptIds.stream().map(id -> "?").toList());
+        String sql = "SELECT id, name FROM learning_concepts WHERE id IN (" + placeholders + ") AND active = TRUE";
+        Map<UUID, String> result = new LinkedHashMap<>();
+        jdbcTemplate.query(sql, rs -> result.put(rs.getObject("id", UUID.class), rs.getString("name")), conceptIds.toArray());
+        return result;
+    }
 }
