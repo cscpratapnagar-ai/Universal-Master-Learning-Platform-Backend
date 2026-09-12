@@ -65,7 +65,8 @@ public class AdaptiveAssessmentSessionService {
         if (session.currentQuestionId() == null || !session.currentQuestionId().equals(request.questionId()))
             throw new IllegalArgumentException("Question is not the active session question");
         Question question = questions.findById(request.questionId()).orElseThrow(() -> new EntityNotFoundException("Question not found"));
-        if (!questionAssessmentId(question).equals(assessment.getId())) throw new IllegalArgumentException("Question does not belong to assessment");
+        if (!questions.existsByIdAndAssessmentId(question.getId(), assessment.getId()))
+            throw new IllegalArgumentException("Question does not belong to assessment");
         QuestionOption selected = request.selectedOptionId() == null ? null : options.findById(request.selectedOptionId()).orElseThrow(() -> new IllegalArgumentException("Selected option not found"));
         if (selected != null && !options.findByQuestionId(question.getId()).stream().anyMatch(o -> o.getId().equals(selected.getId())))
             throw new IllegalArgumentException("Selected option does not belong to the question");
@@ -128,7 +129,6 @@ public class AdaptiveAssessmentSessionService {
     }
 
     private Assessment getAssessment(UUID id) { return assessments.findById(id).orElseThrow(() -> new EntityNotFoundException("Assessment not found")); }
-    private UUID questionAssessmentId(Question question) { return question.getAssessment().getId(); }
     private void requireEnrollment(Assessment assessment, UUID userId) {
         if (!enrollments.existsByCourseIdAndUserId(assessment.getCourse().getId(), userId)) throw new org.springframework.security.access.AccessDeniedException("You are not enrolled in this course");
     }
