@@ -10,6 +10,7 @@ public record LearnerTutorContext(
         String riskLevel,
         String momentum,
         List<String> weakAreas,
+        List<String> weakConcepts,
         String recommendedAction,
         String explanationStyle
 ) {}
