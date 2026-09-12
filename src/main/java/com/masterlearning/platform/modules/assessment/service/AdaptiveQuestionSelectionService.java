@@ -27,8 +27,14 @@ public class AdaptiveQuestionSelectionService {
     }
 
     public AdaptiveAssessmentDecision select(Assessment assessment, UUID userId) {
-        List<Question> pool = questions.findByAssessmentId(assessment.getId());
-        if (pool.isEmpty()) throw new jakarta.persistence.EntityNotFoundException("Assessment has no questions");
+        return select(assessment, userId, Set.of());
+    }
+
+    public AdaptiveAssessmentDecision select(Assessment assessment, UUID userId, Set<UUID> excludedQuestionIds) {
+        List<Question> pool = questions.findByAssessmentId(assessment.getId()).stream()
+                .filter(q -> excludedQuestionIds == null || !excludedQuestionIds.contains(q.getId()))
+                .toList();
+        if (pool.isEmpty()) throw new jakarta.persistence.EntityNotFoundException("No unanswered questions remain");
 
         Map<UUID, AdaptiveAssessmentRepository.QuestionSignal> history = signals.findQuestionSignals(assessment.getId(), userId)
                 .stream().collect(Collectors.toMap(AdaptiveAssessmentRepository.QuestionSignal::questionId, Function.identity()));
@@ -47,6 +53,7 @@ public class AdaptiveQuestionSelectionService {
         if (signal == null || !signal.answeredByLearner()) reasons.add("Prefer unseen question");
         if (signal != null && signal.successRate() < 0.40 && signal.learnerAttempts() > 0) reasons.add("Question shows repeated learner difficulty");
         if (mastery < 60) reasons.add("Learner has weak concept mastery");
+        if (!excludedQuestionIds.isEmpty()) reasons.add("Session excludes already answered questions");
         if (reasons.isEmpty()) reasons.add("Balanced adaptive selection");
         return new AdaptiveAssessmentDecision(assessment.getId(), selected.getId(), action, difficulty,
                 signal != null && signal.conceptId() != null ? signal.conceptId().toString() : "ASSESSMENT_POOL",
