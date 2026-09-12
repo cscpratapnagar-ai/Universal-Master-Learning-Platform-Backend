@@ -22,9 +22,9 @@ public class ConceptMasteryService {
                         "FROM learning_concepts c " +
                         "JOIN question_concepts qc ON qc.concept_id = c.id " +
                         "JOIN assessment_questions q ON q.id = qc.question_id " +
-                        "LEFT JOIN assessment_answers aa ON aa.question_id = q.id " +
-                        "LEFT JOIN assessment_attempts at ON at.id = aa.attempt_id AND at.user_id = ? " +
-                        "WHERE c.course_id = ? AND c.active = TRUE " +
+                        "JOIN assessment_answers aa ON aa.question_id = q.id " +
+                        "JOIN assessment_attempts at ON at.id = aa.attempt_id " +
+                        "WHERE c.course_id = ? AND c.active = TRUE AND at.user_id = ? " +
                         "GROUP BY c.id, c.name, c.concept_type " +
                         "ORDER BY mastery ASC, c.name ASC",
                 (rs, rowNum) -> new ConceptMastery(
@@ -33,7 +33,7 @@ public class ConceptMasteryService {
                         rs.getString("concept_type"),
                         rs.getDouble("mastery"),
                         rs.getLong("evidence_count")),
-                userId, courseId);
+                courseId, userId);
     }
 
     public List<String> weakConcepts(UUID courseId, UUID userId, double threshold, int limit) {
