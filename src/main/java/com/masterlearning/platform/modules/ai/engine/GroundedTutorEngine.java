@@ -7,9 +7,11 @@ import com.masterlearning.platform.modules.ai.dto.response.LearnerTutorContext;
 import com.masterlearning.platform.modules.ai.service.AdaptiveTutorContextService;
 import com.masterlearning.platform.modules.ai.service.ConceptAwareTutorRetriever;
 import com.masterlearning.platform.modules.ai.service.LearnerTutorContextService;
+import com.masterlearning.platform.modules.ai.service.PrerequisiteAwareTutorService;
 import com.masterlearning.platform.modules.ai.service.TutorConversationMemory;
 import com.masterlearning.platform.modules.ai.service.TutorPromptBuilder;
 import com.masterlearning.platform.modules.ai.service.TutorRetrievalReranker;
+import com.masterlearning.platform.modules.ai.repository.LearningConceptMappingRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -31,6 +33,8 @@ public class GroundedTutorEngine {
     private final TutorConversationMemory conversationMemory;
     private final TutorPromptBuilder promptBuilder;
     private final AdaptiveTutorContextService adaptiveContext;
+    private final LearningConceptMappingRepository mappings;
+    private final PrerequisiteAwareTutorService prerequisiteService;
     private final ObjectMapper objectMapper;
     private final RestClient client;
     private final String apiKey;
@@ -39,7 +43,8 @@ public class GroundedTutorEngine {
     public GroundedTutorEngine(RagContextRetriever lexicalRetriever, ConceptAwareTutorRetriever conceptAwareRetriever,
                                TutorRetrievalReranker reranker, LearnerTutorContextService learnerContextService,
                                TutorConversationMemory conversationMemory, TutorPromptBuilder promptBuilder,
-                               AdaptiveTutorContextService adaptiveContext, ObjectMapper objectMapper,
+                               AdaptiveTutorContextService adaptiveContext, LearningConceptMappingRepository mappings,
+                               PrerequisiteAwareTutorService prerequisiteService, ObjectMapper objectMapper,
                                @Value("${OPENAI_API_KEY:}") String apiKey, @Value("${OPENAI_MODEL:gpt-5.6-luna}") String model) {
         this.lexicalRetriever = lexicalRetriever;
         this.conceptAwareRetriever = conceptAwareRetriever;
@@ -48,6 +53,8 @@ public class GroundedTutorEngine {
         this.conversationMemory = conversationMemory;
         this.promptBuilder = promptBuilder;
         this.adaptiveContext = adaptiveContext;
+        this.mappings = mappings;
+        this.prerequisiteService = prerequisiteService;
         this.objectMapper = objectMapper;
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = model;
@@ -66,6 +73,19 @@ public class GroundedTutorEngine {
             conversationMemory.remember(enrollmentId, question, response);
             return new GroundedTutorResponse(enrollmentId, response, false, false, List.of());
         }
+
+        List<UUID> targetConceptIds = chunks.stream()
+                .flatMap(c -> mappings.findConceptIdsForLesson(c.lessonId()).stream())
+                .distinct().toList();
+        PrerequisiteAwareTutorService.Result prerequisites = prerequisiteService.analyzeForEnrollment(enrollmentId, targetConceptIds);
+        String prerequisiteContext = prerequisites.prerequisiteBlocker()
+                ? "\n\nPREREQUISITE ANALYSIS:\nThe learner appears to need these prerequisite concepts before fully understanding the retrieved target material:\n"
+                    + prerequisites.missingPrerequisites().stream()
+                        .map(p -> "- " + p.name() + " (mastery: " + p.mastery() + ")")
+                        .collect(Collectors.joining("\n"))
+                    + "\nTeach the missing prerequisite first or explicitly bridge it before explaining the target concept. Recommend practice on the prerequisite when appropriate."
+                : "\n\nPREREQUISITE ANALYSIS:\nNo missing prerequisite blocker was detected for the retrieved concepts.";
+
         String context = chunks.stream().map(c -> "[Lesson: " + c.lessonTitle() + "]\n" + c.content()).collect(Collectors.joining("\n\n"));
         if (apiKey.isBlank()) {
             String response = "I found relevant course material in: " + chunks.get(0).lessonTitle() + ". The LLM provider is not configured yet, so I will not invent an answer. Configure OPENAI_API_KEY to enable grounded generation.";
@@ -74,6 +94,7 @@ public class GroundedTutorEngine {
         }
         try {
             String prompt = promptBuilder.build(question, context, learner, memory)
+                    + prerequisiteContext
                     + "\n\nADAPTIVE TUTORING:\nUse the learner's explanation style: " + adaptiveContext.explanationStyle(learner.masteryScore()) + ".\n"
                     + "Prefer remediation when the learner is foundational, balanced teaching for developing learners, and deeper challenge for advanced learners.";
             Map<String, Object> body = Map.of("model", model, "input", prompt);
