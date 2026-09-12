@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.masterlearning.platform.modules.ai.dto.response.GroundedTutorResponse;
 import com.masterlearning.platform.modules.ai.dto.response.LearnerTutorContext;
-import com.masterlearning.platform.modules.ai.repository.SemanticRagRepository;
+import com.masterlearning.platform.modules.ai.repository.LearningConceptMappingRepository;
 import com.masterlearning.platform.modules.ai.service.AdaptiveTutorContextService;
 import com.masterlearning.platform.modules.ai.service.LearnerTutorContextService;
 import com.masterlearning.platform.modules.ai.service.SemanticRagService;
@@ -29,10 +29,12 @@ public class GroundedTutorEngine {
     private static final int RETRIEVAL_LIMIT = 5;
     private static final double SEMANTIC_WEIGHT = 0.70;
     private static final double LEXICAL_WEIGHT = 0.30;
+    private static final double WEAK_CONCEPT_BOOST = 0.15;
 
     private final RagContextRetriever lexicalRetriever;
     private final SemanticRagService semanticRag;
     private final TutorRetrievalReranker reranker;
+    private final LearningConceptMappingRepository conceptMappings;
     private final LearnerTutorContextService learnerContextService;
     private final TutorConversationMemory conversationMemory;
     private final TutorPromptBuilder promptBuilder;
@@ -46,6 +48,7 @@ public class GroundedTutorEngine {
             RagContextRetriever lexicalRetriever,
             SemanticRagService semanticRag,
             TutorRetrievalReranker reranker,
+            LearningConceptMappingRepository conceptMappings,
             LearnerTutorContextService learnerContextService,
             TutorConversationMemory conversationMemory,
             TutorPromptBuilder promptBuilder,
@@ -56,6 +59,7 @@ public class GroundedTutorEngine {
         this.lexicalRetriever = lexicalRetriever;
         this.semanticRag = semanticRag;
         this.reranker = reranker;
+        this.conceptMappings = conceptMappings;
         this.learnerContextService = learnerContextService;
         this.conversationMemory = conversationMemory;
         this.promptBuilder = promptBuilder;
@@ -75,7 +79,7 @@ public class GroundedTutorEngine {
 
         LearnerTutorContext learner = learnerContextService.build(enrollmentId);
         List<String> memory = conversationMemory.recent(enrollmentId);
-        List<SourceChunk> chunks = retrieve(courseId, question);
+        List<SourceChunk> chunks = retrieve(courseId, question, learner.weakConcepts());
         List<GroundedTutorResponse.Source> sources = chunks.stream()
                 .map(c -> new GroundedTutorResponse.Source(c.lessonId(), c.lessonTitle(), round(c.relevance())))
                 .toList();
@@ -125,7 +129,7 @@ public class GroundedTutorEngine {
         }
     }
 
-    private List<SourceChunk> retrieve(UUID courseId, String question) {
+    private List<SourceChunk> retrieve(UUID courseId, String question, List<String> weakConcepts) {
         List<SourceChunk> semantic = new ArrayList<>();
         if (!apiKey.isBlank()) {
             try {
@@ -142,7 +146,51 @@ public class GroundedTutorEngine {
                 .toList();
 
         List<SourceChunk> candidates = merge(semantic, lexical);
-        return reranker.rerank(question, candidates, RETRIEVAL_LIMIT);
+        return rerankWithWeakConceptBoost(question, candidates, weakConcepts);
+    }
+
+    private List<SourceChunk> rerankWithWeakConceptBoost(String question, List<SourceChunk> candidates, List<String> weakConcepts) {
+        if (candidates.isEmpty() || weakConcepts == null || weakConcepts.isEmpty()) {
+            return reranker.rerank(question, candidates, RETRIEVAL_LIMIT);
+        }
+
+        Map<UUID, List<String>> conceptsByLesson = conceptMappings.findConceptNamesForLessons(
+                candidates.stream().map(SourceChunk::lessonId).distinct().toList());
+
+        List<SourceChunk> boosted = candidates.stream()
+                .map(chunk -> {
+                    double match = weakConceptMatch(conceptsByLesson.getOrDefault(chunk.lessonId(), List.of()), weakConcepts);
+                    double score = clamp(chunk.relevance() + WEAK_CONCEPT_BOOST * match);
+                    return new SourceChunk(chunk.lessonId(), chunk.lessonTitle(), chunk.content(), score, chunk.contentKey());
+                })
+                .toList();
+
+        return reranker.rerank(question, boosted, RETRIEVAL_LIMIT);
+    }
+
+    private double weakConceptMatch(List<String> lessonConcepts, List<String> weakConcepts) {
+        double best = 0.0;
+        for (String lessonConcept : lessonConcepts) {
+            if (lessonConcept == null || lessonConcept.isBlank()) continue;
+            for (String weakConcept : weakConcepts) {
+                if (weakConcept == null || weakConcept.isBlank()) continue;
+                best = Math.max(best, tokenOverlap(lessonConcept, weakConcept));
+            }
+        }
+        return best;
+    }
+
+    private double tokenOverlap(String left, String right) {
+        List<String> leftTokens = tokens(left);
+        List<String> rightTokens = tokens(right);
+        if (leftTokens.isEmpty() || rightTokens.isEmpty()) return 0.0;
+        long matches = leftTokens.stream().filter(rightTokens::contains).count();
+        return (double) matches / Math.max(leftTokens.size(), rightTokens.size());
+    }
+
+    private List<String> tokens(String value) {
+        return List.of(value.toLowerCase().split("[^\\p{L}\\p{N}]+"))
+                .stream().filter(token -> token.length() >= 3).distinct().toList();
     }
 
     private List<SourceChunk> merge(List<SourceChunk> semantic, List<SourceChunk> lexical) {
