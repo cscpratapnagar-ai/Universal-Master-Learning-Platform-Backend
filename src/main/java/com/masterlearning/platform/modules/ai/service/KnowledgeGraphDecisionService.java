@@ -33,46 +33,51 @@ public class KnowledgeGraphDecisionService {
         var mastery = graph.findLearnerMastery(courseId, userId).stream()
                 .collect(Collectors.toMap(LearningKnowledgeGraphRepository.MasteryRow::id, Function.identity()));
         var edges = graph.findCourseEdges(courseId);
-        Map<UUID, String> names = nodes.stream().collect(Collectors.toMap(LearningKnowledgeGraphRepository.NodeRow::id,
-                LearningKnowledgeGraphRepository.NodeRow::name));
         Map<UUID, List<UUID>> dependents = new HashMap<>();
         for (var edge : edges) dependents.computeIfAbsent(edge.targetId(), k -> new ArrayList<>()).add(edge.sourceId());
 
-        var candidate = nodes.stream()
+        Candidate candidate = nodes.stream()
                 .filter(n -> mastery.getOrDefault(n.id(), new LearningKnowledgeGraphRepository.MasteryRow(n.id(), 0, 0)).mastery() < WEAK)
-                .map(n -> new Candidate(n.id(), n.name(), mastery.getOrDefault(n.id(), new LearningKnowledgeGraphRepository.MasteryRow(n.id(), 0, 0)).mastery(), dependentDepth(n.id(), dependents)))
-                .max(Comparator.comparingInt((Candidate c) -> c.dependents).thenComparingDouble(c -> -c.mastery))
+                .map(n -> {
+                    var m = mastery.getOrDefault(n.id(), new LearningKnowledgeGraphRepository.MasteryRow(n.id(), 0, 0));
+                    Impact impact = impact(n.id(), dependents);
+                    return new Candidate(n.id(), n.name(), m.mastery(), impact.count(), impact.depth());
+                })
+                .max(Comparator.comparingInt(Candidate::dependentCount)
+                        .thenComparingInt(Candidate::depth)
+                        .thenComparingDouble(c -> -c.mastery()))
                 .orElse(null);
 
         if (candidate == null) {
             return new KnowledgeGraphDecision(enrollmentId, courseId, "ADVANCE", null, null, 0, 0, 100,
                     List.of("No weak concept is blocking the current learning graph"));
         }
-        String decision = candidate.mastery < 40 ? "REMEDIATE" : "TARGETED_PRACTICE";
+        String decision = candidate.mastery() < 40 ? "REMEDIATE" : "TARGETED_PRACTICE";
         List<String> reasons = new ArrayList<>();
-        reasons.add(candidate.mastery < 40 ? "Critical mastery gap" : "Concept is below mastery threshold");
-        if (candidate.dependents > 0) reasons.add("Improving this node unlocks downstream concepts");
-        return new KnowledgeGraphDecision(enrollmentId, courseId, decision, candidate.id, candidate.name,
-                candidate.depth, candidate.dependents, candidate.mastery, List.copyOf(reasons));
+        reasons.add(candidate.mastery() < 40 ? "Critical mastery gap" : "Concept is below mastery threshold");
+        if (candidate.dependentCount() > 0) reasons.add("Improving this node unlocks downstream concepts");
+        return new KnowledgeGraphDecision(enrollmentId, courseId, decision, candidate.id(), candidate.name(),
+                candidate.depth(), candidate.dependentCount(), candidate.mastery(), List.copyOf(reasons));
     }
 
-    private int dependentDepth(UUID root, Map<UUID, List<UUID>> dependents) {
+    private Impact impact(UUID root, Map<UUID, List<UUID>> dependents) {
         Queue<Map.Entry<UUID,Integer>> queue = new ArrayDeque<>();
         Set<UUID> seen = new HashSet<>();
         queue.add(Map.entry(root, 0));
-        int max = 0;
+        int maxDepth = 0;
+        int count = 0;
         while (!queue.isEmpty()) {
             var current = queue.remove();
             if (!seen.add(current.getKey())) continue;
-            max = Math.max(max, current.getValue());
+            maxDepth = Math.max(maxDepth, current.getValue());
+            if (current.getValue() > 0) count++;
             for (UUID next : dependents.getOrDefault(current.getKey(), List.of())) {
                 queue.add(Map.entry(next, current.getValue() + 1));
             }
         }
-        return max;
+        return new Impact(count, maxDepth);
     }
 
-    private record Candidate(UUID id, String name, double mastery, int dependents) {
-        int depth() { return dependents; }
-    }
+    private record Impact(int count, int depth) {}
+    private record Candidate(UUID id, String name, double mastery, int dependentCount, int depth) {}
 }
