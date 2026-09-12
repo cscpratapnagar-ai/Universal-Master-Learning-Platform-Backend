@@ -1,6 +1,7 @@
 package com.masterlearning.platform.modules.ai.repository;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
@@ -51,7 +52,7 @@ public class LearningConceptMappingRepository {
                 + "WHERE lc.lesson_id IN (" + placeholders + ") AND c.active = TRUE ORDER BY c.name ASC";
         List<Object> args = new ArrayList<>(lessonIds);
         Map<UUID, List<String>> result = new LinkedHashMap<>();
-        jdbcTemplate.query(sql, rs -> {
+        jdbcTemplate.query(sql, (RowCallbackHandler) rs -> {
             UUID lessonId = rs.getObject("lesson_id", UUID.class);
             result.computeIfAbsent(lessonId, ignored -> new ArrayList<>()).add(rs.getString("name"));
         }, args.toArray());
@@ -71,7 +72,7 @@ public class LearningConceptMappingRepository {
                 + ") SELECT lesson_id, name FROM hierarchy ORDER BY name ASC";
         List<Object> args = new ArrayList<>(lessonIds);
         Map<UUID, List<String>> result = new LinkedHashMap<>();
-        jdbcTemplate.query(sql, rs -> {
+        jdbcTemplate.query(sql, (RowCallbackHandler) rs -> {
             UUID lessonId = rs.getObject("lesson_id", UUID.class);
             result.computeIfAbsent(lessonId, ignored -> new ArrayList<>()).add(rs.getString("name"));
         }, args.toArray());
@@ -84,7 +85,7 @@ public class LearningConceptMappingRepository {
         String sql = "SELECT concept_id, prerequisite_concept_id FROM learning_concept_prerequisites "
                 + "WHERE concept_id IN (" + placeholders + ") ORDER BY concept_id, prerequisite_concept_id";
         Map<UUID, List<UUID>> result = new LinkedHashMap<>();
-        jdbcTemplate.query(sql, rs -> {
+        jdbcTemplate.query(sql, (RowCallbackHandler) rs -> {
             UUID conceptId = rs.getObject("concept_id", UUID.class);
             result.computeIfAbsent(conceptId, ignored -> new ArrayList<>())
                     .add(rs.getObject("prerequisite_concept_id", UUID.class));
@@ -97,7 +98,8 @@ public class LearningConceptMappingRepository {
         String placeholders = String.join(",", conceptIds.stream().map(id -> "?").toList());
         String sql = "SELECT id, name FROM learning_concepts WHERE id IN (" + placeholders + ") AND active = TRUE";
         Map<UUID, String> result = new LinkedHashMap<>();
-        jdbcTemplate.query(sql, rs -> result.put(rs.getObject("id", UUID.class), rs.getString("name")), conceptIds.toArray());
+        jdbcTemplate.query(sql, (RowCallbackHandler) rs ->
+                result.put(rs.getObject("id", UUID.class), rs.getString("name")), conceptIds.toArray());
         return result;
     }
 }
