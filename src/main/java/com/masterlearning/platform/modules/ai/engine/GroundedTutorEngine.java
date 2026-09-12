@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.masterlearning.platform.modules.ai.dto.response.GroundedTutorResponse;
 import com.masterlearning.platform.modules.ai.dto.response.LearnerTutorContext;
+import com.masterlearning.platform.modules.ai.dto.response.TutorIntelligenceContext;
 import com.masterlearning.platform.modules.ai.service.AdaptiveTutorContextService;
 import com.masterlearning.platform.modules.ai.service.ConceptAwareTutorRetriever;
 import com.masterlearning.platform.modules.ai.service.LearnerTutorContextService;
 import com.masterlearning.platform.modules.ai.service.PrerequisiteAwareTutorService;
 import com.masterlearning.platform.modules.ai.service.TutorConversationMemory;
+import com.masterlearning.platform.modules.ai.service.TutorIntelligenceService;
 import com.masterlearning.platform.modules.ai.service.TutorPromptBuilder;
 import com.masterlearning.platform.modules.ai.service.TutorRetrievalReranker;
 import com.masterlearning.platform.modules.ai.repository.LearningConceptMappingRepository;
@@ -35,6 +37,7 @@ public class GroundedTutorEngine {
     private final AdaptiveTutorContextService adaptiveContext;
     private final LearningConceptMappingRepository mappings;
     private final PrerequisiteAwareTutorService prerequisiteService;
+    private final TutorIntelligenceService tutorIntelligence;
     private final ObjectMapper objectMapper;
     private final RestClient client;
     private final String apiKey;
@@ -44,8 +47,9 @@ public class GroundedTutorEngine {
                                TutorRetrievalReranker reranker, LearnerTutorContextService learnerContextService,
                                TutorConversationMemory conversationMemory, TutorPromptBuilder promptBuilder,
                                AdaptiveTutorContextService adaptiveContext, LearningConceptMappingRepository mappings,
-                               PrerequisiteAwareTutorService prerequisiteService, ObjectMapper objectMapper,
-                               @Value("${OPENAI_API_KEY:}") String apiKey, @Value("${OPENAI_MODEL:gpt-5.6-luna}") String model) {
+                               PrerequisiteAwareTutorService prerequisiteService, TutorIntelligenceService tutorIntelligence,
+                               ObjectMapper objectMapper, @Value("${OPENAI_API_KEY:}") String apiKey,
+                               @Value("${OPENAI_MODEL:gpt-5.6-luna}") String model) {
         this.lexicalRetriever = lexicalRetriever;
         this.conceptAwareRetriever = conceptAwareRetriever;
         this.reranker = reranker;
@@ -55,6 +59,7 @@ public class GroundedTutorEngine {
         this.adaptiveContext = adaptiveContext;
         this.mappings = mappings;
         this.prerequisiteService = prerequisiteService;
+        this.tutorIntelligence = tutorIntelligence;
         this.objectMapper = objectMapper;
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = model;
@@ -78,6 +83,7 @@ public class GroundedTutorEngine {
                 .flatMap(c -> mappings.findConceptIdsForLesson(c.lessonId()).stream())
                 .distinct().toList();
         PrerequisiteAwareTutorService.Result prerequisites = prerequisiteService.analyzeForEnrollment(enrollmentId, targetConceptIds);
+        TutorIntelligenceContext intelligence = tutorIntelligence.analyze(question, learner, prerequisites.prerequisiteBlocker());
         String prerequisiteContext = prerequisites.prerequisiteBlocker()
                 ? "\n\nPREREQUISITE ANALYSIS:\nThe learner appears to need these prerequisite concepts before fully understanding the retrieved target material:\n"
                     + prerequisites.missingPrerequisites().stream()
@@ -85,6 +91,18 @@ public class GroundedTutorEngine {
                         .collect(Collectors.joining("\n"))
                     + "\nTeach the missing prerequisite first or explicitly bridge it before explaining the target concept. Recommend practice on the prerequisite when appropriate."
                 : "\n\nPREREQUISITE ANALYSIS:\nNo missing prerequisite blocker was detected for the retrieved concepts.";
+
+        String intelligenceContext = "\n\nTUTOR INTELLIGENCE:\n"
+                + "Misconception signal: " + intelligence.misconceptionSignal() + "\n"
+                + "Teaching strategy: " + intelligence.teachingStrategy() + "\n"
+                + "Follow-up mode: " + intelligence.followUpMode() + "\n"
+                + "Explanation level: " + intelligence.explanationLevel() + "\n"
+                + "Practice recommended: " + intelligence.practiceRecommended() + "\n"
+                + "Signals: " + intelligence.signals() + "\n"
+                + "Treat the misconception signal as a hypothesis, not a fact. Verify the learner's understanding before correcting it. "
+                + "When follow-up mode is CHECK_UNDERSTANDING, finish with one short diagnostic question or targeted practice prompt. "
+                + "When teaching strategy is SOCRATIC_GUIDANCE, guide the learner with a small sequence of questions before giving the full answer. "
+                + "When teaching strategy is MISCONCEPTION_REPAIR, identify the likely incorrect assumption, contrast it with the grounded course material, and verify understanding.";
 
         String context = chunks.stream().map(c -> "[Lesson: " + c.lessonTitle() + "]\n" + c.content()).collect(Collectors.joining("\n\n"));
         if (apiKey.isBlank()) {
@@ -94,7 +112,7 @@ public class GroundedTutorEngine {
         }
         try {
             String prompt = promptBuilder.build(question, context, learner, memory)
-                    + prerequisiteContext
+                    + prerequisiteContext + intelligenceContext
                     + "\n\nADAPTIVE TUTORING:\nUse the learner's explanation style: " + adaptiveContext.explanationStyle(learner.masteryScore()) + ".\n"
                     + "Prefer remediation when the learner is foundational, balanced teaching for developing learners, and deeper challenge for advanced learners.";
             Map<String, Object> body = Map.of("model", model, "input", prompt);
@@ -119,7 +137,6 @@ public class GroundedTutorEngine {
                 semantic = conceptAwareRetriever.retrieve(courseId, question, weakConcepts, RETRIEVAL_LIMIT).stream()
                         .map(c -> new SourceChunk(c.lessonId(), c.lessonTitle(), c.content(), clamp(c.relevance()), c.content())).toList();
             } catch (RuntimeException ignored) {
-                // Continue with lexical retrieval when semantic indexing/provider is unavailable.
             }
         }
         List<SourceChunk> lexical = lexicalRetriever.retrieve(courseId, question, RETRIEVAL_LIMIT).stream()
