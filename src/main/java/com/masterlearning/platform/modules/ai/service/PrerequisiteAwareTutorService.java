@@ -65,7 +65,9 @@ public class PrerequisiteAwareTutorService {
             }
         }
 
-        Map<UUID, String> names = mappings.findActiveConceptNames(new ArrayList<>(missing));
+        Map<UUID, String> names = missing.isEmpty()
+                ? Map.of()
+                : mappings.findActiveConceptNames(new ArrayList<>(missing));
         List<MissingPrerequisite> result = missing.stream()
                 .map(id -> new MissingPrerequisite(id, names.getOrDefault(id, "Unknown prerequisite"),
                         Math.round(masteryByConcept.getOrDefault(id, 0.0) * 100.0) / 100.0))
