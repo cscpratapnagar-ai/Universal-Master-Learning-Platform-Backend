@@ -34,9 +34,13 @@ public class TutorIntelligenceService {
         else if (learner.masteryScore() < 50.0) strategy = "SCAFFOLDED_EXPLANATION";
         else strategy = "DIRECT_TEACHING";
 
-        String followUp = practiceIntent || learner.masteryScore() < 70.0 ? "CHECK_UNDERSTANDING" : "OPTIONAL_CHALLENGE";
+        String followUp = prerequisiteBlocker
+                ? "CHECK_UNDERSTANDING"
+                : practiceIntent || learner.masteryScore() < 70.0
+                    ? "CHECK_UNDERSTANDING"
+                    : "OPTIONAL_CHALLENGE";
         String explanationLevel = learner.masteryScore() < 50.0 ? "FOUNDATIONAL" : learner.masteryScore() >= 85.0 ? "ADVANCED" : "INTERMEDIATE";
-        boolean practice = practiceIntent || learner.masteryScore() < 70.0 || misconceptionPattern;
+        boolean practice = practiceIntent || learner.masteryScore() < 70.0 || misconceptionPattern || prerequisiteBlocker;
 
         return new TutorIntelligenceContext(misconceptionSignal, strategy, followUp, explanationLevel, practice, List.copyOf(signals));
     }
