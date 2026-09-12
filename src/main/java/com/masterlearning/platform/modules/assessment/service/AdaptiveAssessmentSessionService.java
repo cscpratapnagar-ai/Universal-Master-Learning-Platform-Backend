@@ -49,13 +49,10 @@ public class AdaptiveAssessmentSessionService {
         requireEnrollment(assessment, userId);
         if (attempts.countByAssessmentIdAndUserId(assessmentId, userId) >= assessment.getMaxAttempts())
             throw new IllegalStateException("Maximum assessment attempts reached");
-
         Optional<SessionRow> existing = activeSession(assessmentId, userId);
         if (existing.isPresent()) return view(existing.get(), assessment);
-
         UUID sessionId = UUID.randomUUID();
-        jdbc.update("INSERT INTO assessment_sessions(id, assessment_id, user_id, status, questions_answered) VALUES (?, ?, ?, 'ACTIVE', 0)",
-                sessionId, assessmentId, userId);
+        jdbc.update("INSERT INTO assessment_sessions(id, assessment_id, user_id, status, questions_answered) VALUES (?, ?, ?, 'ACTIVE', 0)", sessionId, assessmentId, userId);
         return nextInternal(sessionId, assessment, userId, Set.of(), 0);
     }
 
@@ -65,18 +62,15 @@ public class AdaptiveAssessmentSessionService {
         if (!"ACTIVE".equals(session.status())) throw new IllegalStateException("Assessment session is not active");
         Assessment assessment = getAssessment(session.assessmentId());
         requireEnrollment(assessment, userId);
-        if (!session.currentQuestionId().equals(request.questionId())) throw new IllegalArgumentException("Question is not the active session question");
-
+        if (session.currentQuestionId() == null || !session.currentQuestionId().equals(request.questionId()))
+            throw new IllegalArgumentException("Question is not the active session question");
         Question question = questions.findById(request.questionId()).orElseThrow(() -> new EntityNotFoundException("Question not found"));
         if (!questionAssessmentId(question).equals(assessment.getId())) throw new IllegalArgumentException("Question does not belong to assessment");
-        QuestionOption selected = request.selectedOptionId() == null ? null : options.findById(request.selectedOptionId())
-                .orElseThrow(() -> new IllegalArgumentException("Selected option not found"));
+        QuestionOption selected = request.selectedOptionId() == null ? null : options.findById(request.selectedOptionId()).orElseThrow(() -> new IllegalArgumentException("Selected option not found"));
         if (selected != null && !options.findByQuestionId(question.getId()).stream().anyMatch(o -> o.getId().equals(selected.getId())))
             throw new IllegalArgumentException("Selected option does not belong to the question");
         boolean correct = selected != null && selected.isCorrect();
-
-        jdbc.update("INSERT INTO assessment_session_answers(id, session_id, question_id, selected_option_id, correct) VALUES (?, ?, ?, ?, ?)",
-                UUID.randomUUID(), sessionId, question.getId(), selected == null ? null : selected.getId(), correct);
+        jdbc.update("INSERT INTO assessment_session_answers(id, session_id, question_id, selected_option_id, correct) VALUES (?, ?, ?, ?, ?)", UUID.randomUUID(), sessionId, question.getId(), selected == null ? null : selected.getId(), correct);
         int answered = session.questionsAnswered() + 1;
         Set<UUID> excluded = answeredQuestionIds(sessionId);
         List<Question> pool = questions.findByAssessmentId(assessment.getId());
@@ -87,15 +81,13 @@ public class AdaptiveAssessmentSessionService {
 
     private AdaptiveAssessmentSession nextInternal(UUID sessionId, Assessment assessment, UUID userId, Set<UUID> excluded, int answered) {
         var decision = selector.select(assessment, userId, excluded);
-        jdbc.update("UPDATE assessment_sessions SET current_question_id = ?, questions_answered = ? WHERE id = ?",
-                decision.selectedQuestionId(), answered, sessionId);
+        jdbc.update("UPDATE assessment_sessions SET current_question_id = ?, questions_answered = ? WHERE id = ?", decision.selectedQuestionId(), answered, sessionId);
         SessionRow updated = getSession(sessionId, userId);
         return view(updated, assessment);
     }
 
     private AdaptiveAssessmentSession completeSession(SessionRow session, Assessment assessment, UUID userId, int answered) {
-        List<AnswerRow> rows = jdbc.query("SELECT question_id, selected_option_id, correct FROM assessment_session_answers WHERE session_id = ? ORDER BY answered_at, id",
-                (rs, n) -> new AnswerRow(rs.getObject("question_id", UUID.class), rs.getObject("selected_option_id", UUID.class), rs.getBoolean("correct")), session.id());
+        List<AnswerRow> rows = jdbc.query("SELECT question_id, selected_option_id, correct FROM assessment_session_answers WHERE session_id = ? ORDER BY answered_at, id", (rs, n) -> new AnswerRow(rs.getObject("question_id", UUID.class), rs.getObject("selected_option_id", UUID.class), rs.getBoolean("correct")), session.id());
         List<Question> assessmentQuestions = questions.findByAssessmentId(assessment.getId());
         int totalPoints = assessmentQuestions.stream().mapToInt(Question::getPoints).sum();
         int earned = rows.stream().filter(AnswerRow::correct).mapToInt(r -> questions.findById(r.questionId()).map(Question::getPoints).orElse(0)).sum();
@@ -109,54 +101,37 @@ public class AdaptiveAssessmentSessionService {
             QuestionOption option = row.selectedOptionId() == null ? null : options.findById(row.selectedOptionId()).orElse(null);
             answers.save(new AssessmentAnswer(attempt, q, option, row.correct(), row.correct() ? q.getPoints() : 0));
         }
-        jdbc.update("UPDATE assessment_sessions SET status='COMPLETED', questions_answered=?, current_question_id=NULL, completed_at=? WHERE id=?",
-                answered, Instant.now(), session.id());
-        return new AdaptiveAssessmentSession(session.id(), assessment.getId(), "COMPLETED", answered,
-                Math.min(DEFAULT_QUESTION_LIMIT, assessmentQuestions.size()), null);
+        jdbc.update("UPDATE assessment_sessions SET status='COMPLETED', questions_answered=?, current_question_id=NULL, completed_at=? WHERE id=?", answered, Instant.now(), session.id());
+        return new AdaptiveAssessmentSession(session.id(), assessment.getId(), "COMPLETED", answered, Math.min(DEFAULT_QUESTION_LIMIT, assessmentQuestions.size()), null);
     }
 
     private AdaptiveAssessmentSession view(SessionRow session, Assessment assessment) {
         Question question = session.currentQuestionId() == null ? null : questions.findById(session.currentQuestionId()).orElse(null);
-        return new AdaptiveAssessmentSession(session.id(), assessment.getId(), session.status(), session.questionsAnswered(),
-                Math.min(DEFAULT_QUESTION_LIMIT, questions.findByAssessmentId(assessment.getId()).size()), question == null ? null : questionView(question));
+        return new AdaptiveAssessmentSession(session.id(), assessment.getId(), session.status(), session.questionsAnswered(), Math.min(DEFAULT_QUESTION_LIMIT, questions.findByAssessmentId(assessment.getId()).size()), question == null ? null : questionView(question));
     }
 
     private AdaptiveAssessmentSession.Question questionView(Question q) {
-        List<AdaptiveAssessmentSession.Option> optionViews = options.findByQuestionId(q.getId()).stream()
-                .map(o -> new AdaptiveAssessmentSession.Option(o.getId(), o.getOptionText())).toList();
+        List<AdaptiveAssessmentSession.Option> optionViews = options.findByQuestionId(q.getId()).stream().map(o -> new AdaptiveAssessmentSession.Option(o.getId(), o.getOptionText())).toList();
         return new AdaptiveAssessmentSession.Question(q.getId(), q.getQuestionText(), q.getQuestionType(), q.getPoints(), "ADAPTIVE", optionViews);
     }
 
     private Set<UUID> answeredQuestionIds(UUID sessionId) {
-        return new HashSet<>(jdbc.query("SELECT question_id FROM assessment_session_answers WHERE session_id=?",
-                (rs, n) -> rs.getObject("question_id", UUID.class), sessionId));
+        return new HashSet<>(jdbc.query("SELECT question_id FROM assessment_session_answers WHERE session_id=?", (rs, n) -> rs.getObject("question_id", UUID.class), sessionId));
     }
 
     private Optional<SessionRow> activeSession(UUID assessmentId, UUID userId) {
-        return jdbc.query("SELECT id, assessment_id, user_id, status, current_question_id, questions_answered FROM assessment_sessions WHERE assessment_id=? AND user_id=? AND status='ACTIVE'",
-                (rs, n) -> new SessionRow(rs.getObject("id", UUID.class), rs.getObject("assessment_id", UUID.class),
-                        rs.getObject("user_id", UUID.class), rs.getString("status"), rs.getObject("current_question_id", UUID.class), rs.getInt("questions_answered")),
-                assessmentId, userId).stream().findFirst();
+        return jdbc.query("SELECT id, assessment_id, user_id, status, current_question_id, questions_answered FROM assessment_sessions WHERE assessment_id=? AND user_id=? AND status='ACTIVE'", (rs, n) -> new SessionRow(rs.getObject("id", UUID.class), rs.getObject("assessment_id", UUID.class), rs.getObject("user_id", UUID.class), rs.getString("status"), rs.getObject("current_question_id", UUID.class), rs.getInt("questions_answered")), assessmentId, userId).stream().findFirst();
     }
 
     private SessionRow getSession(UUID id, UUID userId) {
-        return jdbc.query("SELECT id, assessment_id, user_id, status, current_question_id, questions_answered FROM assessment_sessions WHERE id=? AND user_id=?",
-                (rs, n) -> new SessionRow(rs.getObject("id", UUID.class), rs.getObject("assessment_id", UUID.class),
-                        rs.getObject("user_id", UUID.class), rs.getString("status"), rs.getObject("current_question_id", UUID.class), rs.getInt("questions_answered")), id, userId)
-                .stream().findFirst().orElseThrow(() -> new EntityNotFoundException("Assessment session not found"));
+        return jdbc.query("SELECT id, assessment_id, user_id, status, current_question_id, questions_answered FROM assessment_sessions WHERE id=? AND user_id=?", (rs, n) -> new SessionRow(rs.getObject("id", UUID.class), rs.getObject("assessment_id", UUID.class), rs.getObject("user_id", UUID.class), rs.getString("status"), rs.getObject("current_question_id", UUID.class), rs.getInt("questions_answered")), id, userId).stream().findFirst().orElseThrow(() -> new EntityNotFoundException("Assessment session not found"));
     }
 
     private Assessment getAssessment(UUID id) { return assessments.findById(id).orElseThrow(() -> new EntityNotFoundException("Assessment not found")); }
-
-    private UUID questionAssessmentId(Question question) {
-        return question.getAssessment().getId();
-    }
-
+    private UUID questionAssessmentId(Question question) { return question.getAssessment().getId(); }
     private void requireEnrollment(Assessment assessment, UUID userId) {
-        if (!enrollments.existsByCourseIdAndUserId(assessment.getCourse().getId(), userId))
-            throw new org.springframework.security.access.AccessDeniedException("You are not enrolled in this course");
+        if (!enrollments.existsByCourseIdAndUserId(assessment.getCourse().getId(), userId)) throw new org.springframework.security.access.AccessDeniedException("You are not enrolled in this course");
     }
-
     private record SessionRow(UUID id, UUID assessmentId, UUID userId, String status, UUID currentQuestionId, int questionsAnswered) {}
     private record AnswerRow(UUID questionId, UUID selectedOptionId, boolean correct) {}
 }
