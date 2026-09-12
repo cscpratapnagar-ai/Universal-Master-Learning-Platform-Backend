@@ -30,7 +30,7 @@ public class LearningKnowledgeGraphRepository {
                 FROM learning_concept_relations
                 WHERE course_id = ? AND active = TRUE
                 UNION ALL
-                SELECT concept_id, prerequisite_concept_id, 'PREREQUISITE', 1.000
+                SELECT p.concept_id, p.prerequisite_concept_id, 'PREREQUISITE', 1.000
                 FROM learning_concept_prerequisites p
                 JOIN learning_concepts c ON c.id = p.concept_id
                 WHERE c.course_id = ?
@@ -45,14 +45,17 @@ public class LearningKnowledgeGraphRepository {
     public List<MasteryRow> findLearnerMastery(UUID courseId, UUID userId) {
         return jdbcTemplate.query("""
                 SELECT c.id,
-                       ROUND(COALESCE(100.0 * SUM(CASE WHEN aa.correct THEN 1 ELSE 0 END)
-                           / NULLIF(COUNT(aa.id), 0), 0), 2) AS mastery,
-                       COUNT(aa.id) AS evidence_count
+                       ROUND(COALESCE(100.0 * SUM(CASE WHEN la.correct THEN 1 ELSE 0 END)
+                           / NULLIF(COUNT(la.question_id), 0), 0), 2) AS mastery,
+                       COUNT(la.question_id) AS evidence_count
                 FROM learning_concepts c
                 LEFT JOIN question_concepts qc ON qc.concept_id = c.id
-                LEFT JOIN assessment_questions q ON q.id = qc.question_id
-                LEFT JOIN assessment_answers aa ON aa.question_id = q.id
-                LEFT JOIN assessment_attempts at ON at.id = aa.attempt_id AND at.user_id = ?
+                LEFT JOIN (
+                    SELECT aa.question_id, aa.correct
+                    FROM assessment_answers aa
+                    JOIN assessment_attempts at ON at.id = aa.attempt_id
+                    WHERE at.user_id = ?
+                ) la ON la.question_id = qc.question_id
                 WHERE c.course_id = ? AND c.active = TRUE
                 GROUP BY c.id
                 ORDER BY c.id
