@@ -15,12 +15,13 @@ public class AdaptiveAssessmentRepository {
     public List<QuestionSignal> findQuestionSignals(UUID assessmentId, UUID userId) {
         return jdbcTemplate.query("""
                 SELECT q.id,
-                       COALESCE(AVG(CASE WHEN aa.correct THEN 1.0 ELSE 0.0 END), 0.0) AS success_rate,
-                       COUNT(aa.id) AS learner_attempts,
-                       COALESCE(MAX(CASE WHEN aa.correct THEN 1 ELSE 0 END), 0) AS ever_correct,
-                       COALESCE(MAX(CASE WHEN at.user_id = ? THEN at.submitted_at ELSE NULL END), NULL) AS last_answered_at,
-                       COALESCE(MAX(CASE WHEN at.user_id = ? THEN 1 ELSE 0 END), 0) AS answered_by_learner,
-                       COALESCE(MAX(qc.concept_id::text), NULL) AS concept_id
+                       COALESCE(AVG(CASE WHEN at.id IS NOT NULL AND aa.correct THEN 1.0
+                                         WHEN at.id IS NOT NULL THEN 0.0 END), 0.0) AS success_rate,
+                       COUNT(at.id) AS learner_attempts,
+                       COALESCE(MAX(CASE WHEN at.id IS NOT NULL AND aa.correct THEN 1 ELSE 0 END), 0) AS ever_correct,
+                       MAX(at.submitted_at) AS last_answered_at,
+                       COALESCE(MAX(CASE WHEN at.id IS NOT NULL THEN 1 ELSE 0 END), 0) AS answered_by_learner,
+                       MIN(qc.concept_id::text) AS concept_id
                 FROM assessment_questions q
                 LEFT JOIN question_concepts qc ON qc.question_id = q.id
                 LEFT JOIN assessment_answers aa ON aa.question_id = q.id
@@ -36,7 +37,7 @@ public class AdaptiveAssessmentRepository {
                 rs.getTimestamp("last_answered_at") == null ? null : rs.getTimestamp("last_answered_at").toInstant(),
                 rs.getInt("answered_by_learner") == 1,
                 rs.getString("concept_id") == null ? null : UUID.fromString(rs.getString("concept_id"))),
-                userId, userId, userId, assessmentId);
+                userId, assessmentId);
     }
 
     public record QuestionSignal(UUID questionId, double successRate, long learnerAttempts,
