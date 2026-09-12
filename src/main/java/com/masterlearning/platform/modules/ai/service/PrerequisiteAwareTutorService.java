@@ -1,6 +1,8 @@
 package com.masterlearning.platform.modules.ai.service;
 
 import com.masterlearning.platform.modules.ai.repository.LearningConceptMappingRepository;
+import com.masterlearning.platform.modules.course.entity.Enrollment;
+import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayDeque;
@@ -20,11 +22,19 @@ public class PrerequisiteAwareTutorService {
 
     private final LearningConceptMappingRepository mappings;
     private final ConceptMasteryService conceptMastery;
+    private final EnrollmentRepository enrollments;
 
     public PrerequisiteAwareTutorService(LearningConceptMappingRepository mappings,
-                                         ConceptMasteryService conceptMastery) {
+                                         ConceptMasteryService conceptMastery,
+                                         EnrollmentRepository enrollments) {
         this.mappings = mappings;
         this.conceptMastery = conceptMastery;
+        this.enrollments = enrollments;
+    }
+
+    public Result analyzeForEnrollment(UUID enrollmentId, List<UUID> targetConceptIds) {
+        Enrollment enrollment = enrollments.findById(enrollmentId).orElseThrow();
+        return analyze(enrollment.getCourse().getId(), enrollment.getUser().getId(), targetConceptIds);
     }
 
     public Result analyze(UUID courseId, UUID userId, List<UUID> targetConceptIds) {
