@@ -1,1 +1,11 @@
-package com.masterlearning.platform.modules.assessment.repository; import com.masterlearning.platform.modules.assessment.entity.Question; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface QuestionRepository extends JpaRepository<Question,UUID>{List<Question> findByAssessmentId(UUID assessmentId);}
+package com.masterlearning.platform.modules.assessment.repository;
+
+import com.masterlearning.platform.modules.assessment.entity.Question;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.*;
+
+public interface QuestionRepository extends JpaRepository<Question, UUID> {
+    List<Question> findByAssessmentId(UUID assessmentId);
+    boolean existsByIdAndAssessmentId(UUID questionId, UUID assessmentId);
+}
