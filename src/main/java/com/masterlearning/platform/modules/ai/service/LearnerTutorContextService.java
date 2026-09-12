@@ -17,13 +17,18 @@ import java.util.UUID;
 public class LearnerTutorContextService {
     private static final int WEAK_AREA_THRESHOLD = 60;
     private static final int MAX_WEAK_AREAS = 5;
+    private static final int MAX_WEAK_CONCEPTS = 5;
 
     private final EnrollmentRepository enrollments;
     private final AssessmentAttemptRepository attempts;
+    private final ConceptMasteryService conceptMastery;
 
-    public LearnerTutorContextService(EnrollmentRepository enrollments, AssessmentAttemptRepository attempts) {
+    public LearnerTutorContextService(EnrollmentRepository enrollments,
+                                      AssessmentAttemptRepository attempts,
+                                      ConceptMasteryService conceptMastery) {
         this.enrollments = enrollments;
         this.attempts = attempts;
+        this.conceptMastery = conceptMastery;
     }
 
     public LearnerTutorContext build(UUID enrollmentId) {
@@ -38,17 +43,13 @@ public class LearnerTutorContextService {
         String momentum = momentum(history);
         String style = mastery < 50 ? "SIMPLE_STEP_BY_STEP" : mastery >= 85 ? "CHALLENGE_AND_ACCELERATE" : "BALANCED_EXPLANATION";
         List<String> weakAreas = weakAreas(history);
+        List<String> weakConcepts = conceptMastery.weakConcepts(courseId, userId, WEAK_AREA_THRESHOLD, MAX_WEAK_CONCEPTS);
         String action = mastery < 50 ? "REMEDIATE" : mastery >= 85 ? "ACCELERATE" : "CONTINUE_LEARNING";
 
         return new LearnerTutorContext(enrollmentId, round(mastery), state, risk, momentum,
-                weakAreas, action, style);
+                weakAreas, weakConcepts, action, style);
     }
 
-    /**
-     * Derives tutor focus areas from the latest available weak assessment evidence.
-     * This remains assessment-title based because the current Question model has no
-     * concept/skill taxonomy; it deliberately avoids inventing concept labels.
-     */
     static List<String> weakAreas(List<AssessmentAttempt> history) {
         if (history == null || history.isEmpty()) {
             return List.of("No specific weak area identified");
