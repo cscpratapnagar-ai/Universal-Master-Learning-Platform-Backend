@@ -31,7 +31,10 @@ public class PersonalizedLearningPathService {
             throw new org.springframework.security.access.AccessDeniedException("Enrollment does not belong to current user");
         }
         UUID courseId = enrollment.getCourse().getId();
-        List<Lesson> courseLessons = lessons.findByCourseIdOrderBySequenceOrderAsc(courseId);
+        List<Lesson> courseLessons = new ArrayList<>();
+        enrollment.getCourse().getModules().stream()
+                .sorted(Comparator.comparingInt(m -> m.getSortOrder()))
+                .forEach(module -> courseLessons.addAll(lessons.findByModuleIdOrderBySortOrderAsc(module.getId())));
         Map<UUID, Double> mastery = graph.findLearnerMastery(courseId, userId).stream()
                 .collect(java.util.stream.Collectors.toMap(LearningKnowledgeGraphRepository.MasteryRow::id,
                         LearningKnowledgeGraphRepository.MasteryRow::mastery));
