@@ -11,6 +11,7 @@ import com.masterlearning.platform.modules.assessment.repository.*;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,7 +72,11 @@ public class AdaptiveAssessmentSessionService {
         if (selected != null && !options.findByQuestionId(question.getId()).stream().anyMatch(o -> o.getId().equals(selected.getId())))
             throw new IllegalArgumentException("Selected option does not belong to the question");
         boolean correct = selected != null && selected.isCorrect();
-        jdbc.update("INSERT INTO assessment_session_answers(id, session_id, question_id, selected_option_id, correct) VALUES (?, ?, ?, ?, ?)", UUID.randomUUID(), sessionId, question.getId(), selected == null ? null : selected.getId(), correct);
+        try {
+            jdbc.update("INSERT INTO assessment_session_answers(id, session_id, question_id, selected_option_id, correct) VALUES (?, ?, ?, ?, ?)", UUID.randomUUID(), sessionId, question.getId(), selected == null ? null : selected.getId(), correct);
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalStateException("Question has already been answered in this session");
+        }
         int answered = session.questionsAnswered() + 1;
         Set<UUID> excluded = answeredQuestionIds(sessionId);
         List<Question> pool = questions.findByAssessmentId(assessment.getId());
@@ -102,8 +107,7 @@ public class AdaptiveAssessmentSessionService {
 
     private AdaptiveAssessmentSession completeSession(SessionRow session, Assessment assessment, UUID userId, int answered) {
         List<AnswerRow> rows = jdbc.query("SELECT question_id, selected_option_id, correct FROM assessment_session_answers WHERE session_id = ? ORDER BY answered_at, id", (rs, n) -> new AnswerRow(rs.getObject("question_id", UUID.class), rs.getObject("selected_option_id", UUID.class), rs.getBoolean("correct")), session.id());
-        List<Question> assessmentQuestions = questions.findByAssessmentId(assessment.getId());
-        int totalPoints = assessmentQuestions.stream().mapToInt(Question::getPoints).sum();
+        int totalPoints = rows.stream().mapToInt(r -> questions.findById(r.questionId()).map(Question::getPoints).orElse(0)).sum();
         int earned = rows.stream().filter(AnswerRow::correct).mapToInt(r -> questions.findById(r.questionId()).map(Question::getPoints).orElse(0)).sum();
         int score = totalPoints == 0 ? 0 : (int) Math.round(earned * 100.0 / totalPoints);
         boolean passed = score >= assessment.getPassingScore();
@@ -116,7 +120,7 @@ public class AdaptiveAssessmentSessionService {
             answers.save(new AssessmentAnswer(attempt, q, option, row.correct(), row.correct() ? q.getPoints() : 0));
         }
         jdbc.update("UPDATE assessment_sessions SET status='COMPLETED', questions_answered=?, current_question_id=NULL, completed_at=? WHERE id=?", answered, Instant.now(), session.id());
-        return new AdaptiveAssessmentSession(session.id(), assessment.getId(), "COMPLETED", answered, Math.min(DEFAULT_QUESTION_LIMIT, assessmentQuestions.size()), null);
+        return new AdaptiveAssessmentSession(session.id(), assessment.getId(), "COMPLETED", answered, Math.min(DEFAULT_QUESTION_LIMIT, rows.size()), null);
     }
 
     private AdaptiveAssessmentSession view(SessionRow session, Assessment assessment) {
