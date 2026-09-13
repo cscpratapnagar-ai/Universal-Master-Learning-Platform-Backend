@@ -1,6 +1,7 @@
 package com.masterlearning.platform.modules.learning.service;
 
 import com.masterlearning.platform.modules.ai.repository.LearningKnowledgeGraphRepository;
+import com.masterlearning.platform.modules.ai.service.ConceptMasteryService;
 import com.masterlearning.platform.modules.course.entity.CourseModule;
 import com.masterlearning.platform.modules.course.entity.Enrollment;
 import com.masterlearning.platform.modules.course.entity.Lesson;
