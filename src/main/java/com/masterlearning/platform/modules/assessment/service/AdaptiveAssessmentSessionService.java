@@ -81,10 +81,23 @@ public class AdaptiveAssessmentSessionService {
     }
 
     private AdaptiveAssessmentSession nextInternal(UUID sessionId, Assessment assessment, UUID userId, Set<UUID> excluded, int answered) {
-        var decision = selector.select(assessment, userId, excluded);
+        int correctStreak = recentStreak(sessionId, true);
+        int incorrectStreak = recentStreak(sessionId, false);
+        var decision = selector.select(assessment, userId, excluded, correctStreak, incorrectStreak);
         jdbc.update("UPDATE assessment_sessions SET current_question_id = ?, questions_answered = ? WHERE id = ?", decision.selectedQuestionId(), answered, sessionId);
         SessionRow updated = getSession(sessionId, userId);
         return view(updated, assessment);
+    }
+
+    private int recentStreak(UUID sessionId, boolean correct) {
+        List<Boolean> results = jdbc.query("SELECT correct FROM assessment_session_answers WHERE session_id=? ORDER BY answered_at DESC, id DESC",
+                (rs, n) -> rs.getBoolean("correct"), sessionId);
+        int streak = 0;
+        for (boolean result : results) {
+            if (result != correct) break;
+            streak++;
+        }
+        return streak;
     }
 
     private AdaptiveAssessmentSession completeSession(SessionRow session, Assessment assessment, UUID userId, int answered) {
