@@ -2,7 +2,9 @@ package com.masterlearning.platform.modules.assessment.controller;
 
 import com.masterlearning.platform.common.api.ApiResponse;
 import com.masterlearning.platform.modules.assessment.dto.request.AdaptiveAssessmentAnswerRequest;
+import com.masterlearning.platform.modules.assessment.dto.response.AdaptiveAssessmentMasteryLoop;
 import com.masterlearning.platform.modules.assessment.dto.response.AdaptiveAssessmentSession;
+import com.masterlearning.platform.modules.assessment.service.AdaptiveAssessmentMasteryLoopService;
 import com.masterlearning.platform.modules.assessment.service.AdaptiveAssessmentSessionService;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.validation.Valid;
@@ -15,9 +17,12 @@ import java.util.UUID;
 @RequestMapping("/api/v1/student/learning/assessments")
 public class AdaptiveAssessmentSessionController {
     private final AdaptiveAssessmentSessionService sessions;
+    private final AdaptiveAssessmentMasteryLoopService masteryLoop;
 
-    public AdaptiveAssessmentSessionController(AdaptiveAssessmentSessionService sessions) {
+    public AdaptiveAssessmentSessionController(AdaptiveAssessmentSessionService sessions,
+                                               AdaptiveAssessmentMasteryLoopService masteryLoop) {
         this.sessions = sessions;
+        this.masteryLoop = masteryLoop;
     }
 
     @PostMapping("/{assessmentId}/adaptive-session/start")
@@ -33,5 +38,12 @@ public class AdaptiveAssessmentSessionController {
                                                          @Valid @RequestBody AdaptiveAssessmentAnswerRequest request) {
         return ApiResponse.success("Adaptive answer evaluated",
                 sessions.answer(sessionId, request, SecurityUtils.getCurrentUserId()));
+    }
+
+    @GetMapping("/adaptive-session/{sessionId}/mastery-loop")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<AdaptiveAssessmentMasteryLoop> masteryLoop(@PathVariable UUID sessionId) {
+        return ApiResponse.success("Adaptive assessment mastery evaluated",
+                masteryLoop.evaluate(sessionId, SecurityUtils.getCurrentUserId()));
     }
 }
