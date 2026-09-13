@@ -1,10 +1,12 @@
 package com.masterlearning.platform.modules.learning.service;
 
+import com.masterlearning.platform.modules.course.entity.CourseModule;
 import com.masterlearning.platform.modules.course.entity.Enrollment;
-import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
-import com.masterlearning.platform.modules.learning.dto.response.PersonalizedLearningPath;
 import com.masterlearning.platform.modules.course.entity.Lesson;
+import com.masterlearning.platform.modules.course.repository.CourseModuleRepository;
+import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import com.masterlearning.platform.modules.course.repository.LessonRepository;
+import com.masterlearning.platform.modules.learning.dto.response.PersonalizedLearningPath;
 import com.masterlearning.platform.modules.ai.repository.LearningKnowledgeGraphRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
@@ -15,12 +17,14 @@ import java.util.*;
 public class PersonalizedLearningPathService {
     private final EnrollmentRepository enrollments;
     private final LessonRepository lessons;
+    private final CourseModuleRepository modules;
     private final LearningKnowledgeGraphRepository graph;
 
     public PersonalizedLearningPathService(EnrollmentRepository enrollments, LessonRepository lessons,
-                                           LearningKnowledgeGraphRepository graph) {
+                                           CourseModuleRepository modules, LearningKnowledgeGraphRepository graph) {
         this.enrollments = enrollments;
         this.lessons = lessons;
+        this.modules = modules;
         this.graph = graph;
     }
 
@@ -32,9 +36,9 @@ public class PersonalizedLearningPathService {
         }
         UUID courseId = enrollment.getCourse().getId();
         List<Lesson> courseLessons = new ArrayList<>();
-        enrollment.getCourse().getModules().stream()
-                .sorted(Comparator.comparingInt(m -> m.getSortOrder()))
-                .forEach(module -> courseLessons.addAll(lessons.findByModuleIdOrderBySortOrderAsc(module.getId())));
+        for (CourseModule module : modules.findByCourseIdOrderBySortOrderAsc(courseId)) {
+            courseLessons.addAll(lessons.findByModuleIdOrderBySortOrderAsc(module.getId()));
+        }
         Map<UUID, Double> mastery = graph.findLearnerMastery(courseId, userId).stream()
                 .collect(java.util.stream.Collectors.toMap(LearningKnowledgeGraphRepository.MasteryRow::id,
                         LearningKnowledgeGraphRepository.MasteryRow::mastery));
