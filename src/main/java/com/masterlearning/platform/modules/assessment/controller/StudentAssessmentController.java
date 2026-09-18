@@ -112,7 +112,7 @@ public class StudentAssessmentController {
         }
 
         return ApiResponse.success("Assessment submitted",new AssessmentResultResponse(
-                attempt.getId(),score,passed,correctAnswers,assessmentQuestions.size()));
+                attempt.getId(),score,passed,correctAnswers,assessmentQuestions.size(),masteryLevel));
     }
 
     private void requireEnrollment(UUID courseId) {
