@@ -1,1 +1,12 @@
-package com.masterlearning.platform.modules.assessment.dto.response; import java.util.UUID; public record AssessmentResultResponse(UUID attemptId,int score,boolean passed,int correctAnswers,int totalQuestions) {}
+package com.masterlearning.platform.modules.assessment.dto.response;
+
+import java.util.UUID;
+
+public record AssessmentResultResponse(
+        UUID attemptId,
+        int score,
+        boolean passed,
+        int correctAnswers,
+        int totalQuestions,
+        String masteryLevel
+) {}
