@@ -89,7 +89,7 @@ public class AssessmentController {
         if (request.options().stream().noneMatch(CreateQuestionRequest.Option::correct)) {
             throw new IllegalArgumentException("At least one correct option is required");
         }
-        Question question = questions.saveAndFlush(new Question(assessment, request.questionText(), request.questionType() == null ? "SINGLE_CHOICE" : request.questionType(), request.points()));
+        Question question = questions.saveAndFlush(new Question(assessment, request.questionText(), request.questionType() == null ? "SINGLE_CHOICE" : request.questionType(), request.points(), request.difficultyLevel()));
         request.options().forEach(option -> options.save(new QuestionOption(question, option.text(), option.correct())));
         options.flush();
         return ApiResponse.success("Question created", Map.of("id", question.getId()));
