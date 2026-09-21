@@ -43,6 +43,7 @@ public class Question extends BaseEntity {
     }
 
     public UUID getId() { return id; }
+    public Assessment getAssessment() { return assessment; }
     public String getQuestionText() { return questionText; }
     public String getQuestionType() { return questionType; }
     public int getPoints() { return points; }
