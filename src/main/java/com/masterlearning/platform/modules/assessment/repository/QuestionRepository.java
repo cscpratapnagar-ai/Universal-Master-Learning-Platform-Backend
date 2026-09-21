@@ -8,4 +8,5 @@ import java.util.*;
 public interface QuestionRepository extends JpaRepository<Question, UUID> {
     List<Question> findByAssessmentId(UUID assessmentId);
     boolean existsByIdAndAssessmentId(UUID questionId, UUID assessmentId);
+    List<Question> findByAssessmentCourseId(UUID courseId);
 }
