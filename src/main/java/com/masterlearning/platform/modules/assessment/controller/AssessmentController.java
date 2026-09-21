@@ -78,6 +78,54 @@ public class AssessmentController {
         return ApiResponse.success("Lesson assessment created and completion gate enabled", Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
     }
 
+    @GetMapping("/courses/{courseId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @Transactional(readOnly = true)
+    public ApiResponse<java.util.List<Map<String,Object>>> courseAssessments(@PathVariable UUID courseId) {
+        if (!courses.existsById(courseId)) throw new EntityNotFoundException("Course not found");
+        return ApiResponse.success("Course assessments loaded", assessments.findByCourseId(courseId).stream()
+                .map(a -> Map.<String,Object>of("id", a.getId(), "title", a.getTitle(), "level", a.getAssessmentLevel(),
+                        "passingScore", a.getPassingScore(), "maxAttempts", a.getMaxAttempts()))
+                .toList());
+    }
+
+    @GetMapping("/question-bank/courses/{courseId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @Transactional(readOnly = true)
+    public ApiResponse<java.util.List<Map<String,Object>>> questionBank(@PathVariable UUID courseId,
+                                                                          @RequestParam(required = false) String difficultyLevel,
+                                                                          @RequestParam(required = false) String questionType) {
+        if (!courses.existsById(courseId)) throw new EntityNotFoundException("Course not found");
+        String difficulty = difficultyLevel == null ? null : difficultyLevel.trim().toUpperCase();
+        String type = questionType == null ? null : questionType.trim().toUpperCase();
+        var result = questions.findByAssessmentCourseId(courseId).stream()
+                .filter(q -> difficulty == null || difficulty.equals(q.getDifficultyLevel()))
+                .filter(q -> type == null || type.equals(q.getQuestionType()))
+                .map(q -> Map.<String,Object>of(
+                        "id", q.getId(), "questionText", q.getQuestionText(), "questionType", q.getQuestionType(),
+                        "points", q.getPoints(), "difficultyLevel", q.getDifficultyLevel(),
+                        "sourceAssessmentId", q.getAssessment().getId(), "sourceAssessmentTitle", q.getAssessment().getTitle(),
+                        "options", options.findByQuestionId(q.getId()).stream()
+                                .map(o -> Map.<String,Object>of("id", o.getId(), "optionText", o.getOptionText(), "correct", o.isCorrect())).toList()))
+                .toList();
+        return ApiResponse.success("Question bank loaded", result);
+    }
+
+    @PostMapping("/{assessmentId}/questions/{questionId}/reuse")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @Transactional
+    public ApiResponse<Map<String,Object>> reuseQuestion(@PathVariable UUID assessmentId, @PathVariable UUID questionId) {
+        Assessment target = assessments.findById(assessmentId).orElseThrow(() -> new EntityNotFoundException("Assessment not found"));
+        Question source = questions.findById(questionId).orElseThrow(() -> new EntityNotFoundException("Question not found"));
+        if (!source.getAssessment().getCourse().getId().equals(target.getCourse().getId())) {
+            throw new IllegalArgumentException("Question and target assessment must belong to the same course");
+        }
+        Question copy = questions.saveAndFlush(new Question(target, source.getQuestionText(), source.getQuestionType(), source.getPoints(), source.getDifficultyLevel()));
+        options.saveAll(options.findByQuestionId(source.getId()).stream()
+                .map(o -> new QuestionOption(copy, o.getOptionText(), o.isCorrect())).toList());
+        return ApiResponse.success("Question reused", Map.of("id", copy.getId(), "assessmentId", target.getId()));
+    }
+
     private int maxAttempts(CreateAssessmentRequest request) { return request.maxAttempts() == null ? 3 : request.maxAttempts(); }
 
     @PostMapping("/{assessmentId}/questions")
