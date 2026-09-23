@@ -1,1 +1,12 @@
-package com.masterlearning.platform.modules.certificate.repository; import com.masterlearning.platform.modules.certificate.entity.Certificate; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface CertificateRepository extends JpaRepository<Certificate,UUID>{boolean existsByCourseIdAndUserId(UUID courseId,UUID userId); Optional<Certificate> findByCertificateNumber(String certificateNumber);}
+package com.masterlearning.platform.modules.certificate.repository;
+
+import com.masterlearning.platform.modules.certificate.entity.Certificate;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.*;
+
+public interface CertificateRepository extends JpaRepository<Certificate, UUID> {
+    boolean existsByCourseIdAndUserId(UUID courseId, UUID userId);
+    Optional<Certificate> findByCertificateNumber(String certificateNumber);
+    Optional<Certificate> findByCourseIdAndUserId(UUID courseId, UUID userId);
+    List<Certificate> findByUserId(UUID userId);
+}
