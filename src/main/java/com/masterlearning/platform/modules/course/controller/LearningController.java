@@ -39,7 +39,7 @@ public class LearningController {
     }
 
     @PostMapping("/courses/{courseId}/modules")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
     public ApiResponse<Map<String, Object>> addModule(@PathVariable UUID courseId,
                                                        @Valid @RequestBody CreateModuleRequest r) {
         var c = courses.findById(courseId)
@@ -49,7 +49,7 @@ public class LearningController {
     }
 
     @PostMapping("/modules/{moduleId}/lessons")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
     public ApiResponse<Map<String, Object>> addLesson(@PathVariable UUID moduleId,
                                                        @Valid @RequestBody CreateLessonRequest r) {
         var m = modules.findById(moduleId)
@@ -62,7 +62,7 @@ public class LearningController {
     }
 
     @PatchMapping("/lessons/{lessonId}/completion-mode")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
     public ApiResponse<Map<String, Object>> updateLessonCompletionMode(
             @PathVariable UUID lessonId,
             @RequestBody Map<String, String> body
@@ -86,7 +86,7 @@ public class LearningController {
     }
 
     @PostMapping("/lessons/{lessonId}/prerequisites/{prerequisiteLessonId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
     @Transactional
     public ApiResponse<Map<String, Object>> addPrerequisite(
             @PathVariable UUID lessonId,
@@ -125,7 +125,7 @@ public class LearningController {
     }
 
     @DeleteMapping("/lessons/{lessonId}/prerequisites/{prerequisiteLessonId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
     @Transactional
     public ApiResponse<Map<String, Object>> removePrerequisite(
             @PathVariable UUID lessonId,
@@ -161,7 +161,7 @@ public class LearningController {
     }
 
     @GetMapping("/courses/{courseId}/dependency-graph")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
     public ApiResponse<Map<String, Object>> dependencyGraph(@PathVariable UUID courseId) {
         var course = courses.findById(courseId)
                 .orElseThrow(() -> new EntityNotFoundException("Course not found"));
