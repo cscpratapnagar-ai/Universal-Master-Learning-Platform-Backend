@@ -18,7 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/admin/learning-path")
-@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
 public class AdminLearningPathController {
     private final LessonRepository lessons;
     private final LessonPrerequisiteRepository prerequisites;
