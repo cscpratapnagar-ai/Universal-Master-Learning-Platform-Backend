@@ -59,6 +59,7 @@ public class RoleRequestController {
         if(!"PENDING".equals(request.getStatus())) throw new IllegalArgumentException("Only pending requests can be approved");
         User reviewer=users.findById(principal.userId()).orElseThrow(()->new EntityNotFoundException("Reviewer not found"));
         roles.findByCode(request.getRequestedRole()).ifPresentOrElse(request.getUser()::assignRole,()->{throw new EntityNotFoundException("Requested role does not exist");});
+        users.save(request.getUser());
         request.approve(reviewer);
         requests.save(request);
         return ApiResponse.success("Role request approved", view(request));
