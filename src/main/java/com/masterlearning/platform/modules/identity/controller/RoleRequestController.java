@@ -59,8 +59,12 @@ public class RoleRequestController {
 
     @GetMapping("/admin/role-requests")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
-    public ApiResponse<List<Map<String,Object>>> pending() {
-        return ApiResponse.success("Pending role requests retrieved", requests.findByStatusOrderByCreatedAtAsc("PENDING").stream().map(this::view).toList());
+    public ApiResponse<List<Map<String,Object>>> pending(@RequestParam(defaultValue = "PENDING") String status) {
+        String normalized = status == null ? "PENDING" : status.trim().toUpperCase(Locale.ROOT);
+        List<RoleRequest> result = "ALL".equals(normalized)
+                ? requests.findAllByOrderByCreatedAtDesc()
+                : requests.findByStatusOrderByCreatedAtAsc(normalized);
+        return ApiResponse.success("Role requests retrieved", result.stream().map(this::view).toList());
     }
 
     @PostMapping("/admin/role-requests/{id}/approve")
