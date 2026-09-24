@@ -38,7 +38,7 @@ public class AssessmentController {
 
     public AssessmentController(AssessmentRepository assessments, QuestionRepository questions,
                                 QuestionOptionRepository options, CourseRepository courses,
-                                CourseModuleRepository modules, LessonRepository lessons) {
+                                CourseModuleRepository modules, LessonRepository lessons, CourseAuthorizationService authorization) {
         this.assessments = assessments;
         this.questions = questions;
         this.options = options;
