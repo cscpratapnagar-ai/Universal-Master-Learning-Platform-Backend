@@ -31,7 +31,8 @@ public class LearningController {
 
     public LearningController(CourseRepository c, CourseModuleRepository m, LessonRepository l,
                               EnrollmentRepository e, UserRepository u,
-                              LessonPrerequisiteRepository prerequisites) {
+                              LessonPrerequisiteRepository prerequisites,
+                              CourseAuthorizationService authorization) {
         courses = c;
         modules = m;
         lessons = l;
@@ -106,6 +107,7 @@ public class LearningController {
                 .orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
         var prerequisite = lessons.findById(prerequisiteLessonId)
                 .orElseThrow(() -> new EntityNotFoundException("Prerequisite lesson not found"));
+        authorization.assertCanManage(lesson.getModule().getCourse());
 
         if (!lesson.getModule().getCourse().getId()
                 .equals(prerequisite.getModule().getCourse().getId())) {
