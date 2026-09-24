@@ -15,6 +15,7 @@ public interface OrganizationService {
     List<OrganizationResponse> getAll();
     void deactivate(UUID id);
     void addMember(UUID organizationId, AddOrganizationMemberRequest request);
+    void inviteMember(UUID organizationId, InviteOrganizationMemberRequest request);
     List<OrganizationMemberResponse> getMembers(UUID organizationId);
     void deactivateMember(UUID organizationId, UUID memberId);
     List<OrganizationResponse> getCurrentUserOrganizations();
