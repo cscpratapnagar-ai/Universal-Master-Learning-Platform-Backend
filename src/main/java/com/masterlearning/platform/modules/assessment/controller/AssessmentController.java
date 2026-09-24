@@ -15,6 +15,7 @@ import com.masterlearning.platform.modules.course.entity.Lesson;
 import com.masterlearning.platform.modules.course.repository.CourseModuleRepository;
 import com.masterlearning.platform.modules.course.repository.CourseRepository;
 import com.masterlearning.platform.modules.course.repository.LessonRepository;
+import com.masterlearning.platform.modules.course.security.CourseAuthorizationService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,6 +34,7 @@ public class AssessmentController {
     private final CourseRepository courses;
     private final CourseModuleRepository modules;
     private final LessonRepository lessons;
+    private final CourseAuthorizationService authorization;
 
     public AssessmentController(AssessmentRepository assessments, QuestionRepository questions,
                                 QuestionOptionRepository options, CourseRepository courses,
@@ -43,6 +45,7 @@ public class AssessmentController {
         this.courses = courses;
         this.modules = modules;
         this.lessons = lessons;
+        this.authorization = authorization;
     }
 
     @PostMapping("/courses/{courseId}")
@@ -51,6 +54,7 @@ public class AssessmentController {
     public ApiResponse<Map<String,Object>> createCourseAssessment(@PathVariable UUID courseId,
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
         Course course = courses.findById(courseId).orElseThrow(() -> new EntityNotFoundException("Course not found"));
+        authorization.assertCanManage(course);
         Assessment assessment = assessments.saveAndFlush(new Assessment(course, null, null, "COURSE", request.title(), request.passingScore(), maxAttempts(request)));
         return ApiResponse.success("Course assessment created", Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
     }
@@ -61,6 +65,7 @@ public class AssessmentController {
     public ApiResponse<Map<String,Object>> createModuleAssessment(@PathVariable UUID moduleId,
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
         CourseModule module = modules.findById(moduleId).orElseThrow(() -> new EntityNotFoundException("Module not found"));
+        authorization.assertCanManage(module.getCourse());
         Assessment assessment = assessments.saveAndFlush(new Assessment(module.getCourse(), module, null, "MODULE", request.title(), request.passingScore(), maxAttempts(request)));
         return ApiResponse.success("Module assessment created", Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
     }
@@ -71,6 +76,7 @@ public class AssessmentController {
     public ApiResponse<Map<String,Object>> createLessonAssessment(@PathVariable UUID lessonId,
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
         Lesson lesson = lessons.findById(lessonId).orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
+        authorization.assertCanManage(lesson.getModule().getCourse());
         lesson.setCompletionMode("ASSESSMENT_REQUIRED");
         lessons.saveAndFlush(lesson);
         CourseModule module = lesson.getModule();
@@ -82,7 +88,8 @@ public class AssessmentController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
     @Transactional(readOnly = true)
     public ApiResponse<java.util.List<Map<String,Object>>> courseAssessments(@PathVariable UUID courseId) {
-        if (!courses.existsById(courseId)) throw new EntityNotFoundException("Course not found");
+        Course course = courses.findById(courseId).orElseThrow(() -> new EntityNotFoundException("Course not found"));
+        authorization.assertCanManage(course);
         return ApiResponse.success("Course assessments loaded", assessments.findByCourseId(courseId).stream()
                 .map(a -> Map.<String,Object>of("id", a.getId(), "title", a.getTitle(), "level", a.getAssessmentLevel(),
                         "passingScore", a.getPassingScore(), "maxAttempts", a.getMaxAttempts()))
@@ -95,7 +102,8 @@ public class AssessmentController {
     public ApiResponse<java.util.List<Map<String,Object>>> questionBank(@PathVariable UUID courseId,
                                                                           @RequestParam(required = false) String difficultyLevel,
                                                                           @RequestParam(required = false) String questionType) {
-        if (!courses.existsById(courseId)) throw new EntityNotFoundException("Course not found");
+        Course course = courses.findById(courseId).orElseThrow(() -> new EntityNotFoundException("Course not found"));
+        authorization.assertCanManage(course);
         String difficulty = difficultyLevel == null ? null : difficultyLevel.trim().toUpperCase();
         String type = questionType == null ? null : questionType.trim().toUpperCase();
         var result = questions.findByAssessmentCourseId(courseId).stream()
@@ -116,6 +124,7 @@ public class AssessmentController {
     @Transactional
     public ApiResponse<Map<String,Object>> reuseQuestion(@PathVariable UUID assessmentId, @PathVariable UUID questionId) {
         Assessment target = assessments.findById(assessmentId).orElseThrow(() -> new EntityNotFoundException("Assessment not found"));
+        authorization.assertCanManage(target.getCourse());
         Question source = questions.findById(questionId).orElseThrow(() -> new EntityNotFoundException("Question not found"));
         if (!source.getAssessment().getCourse().getId().equals(target.getCourse().getId())) {
             throw new IllegalArgumentException("Question and target assessment must belong to the same course");
@@ -134,6 +143,7 @@ public class AssessmentController {
     public ApiResponse<Map<String,Object>> question(@PathVariable UUID assessmentId,
                                                      @Valid @RequestBody CreateQuestionRequest request) {
         Assessment assessment = assessments.findById(assessmentId).orElseThrow(() -> new EntityNotFoundException("Assessment not found"));
+        authorization.assertCanManage(assessment.getCourse());
         if (request.options().stream().noneMatch(CreateQuestionRequest.Option::correct)) {
             throw new IllegalArgumentException("At least one correct option is required");
         }
