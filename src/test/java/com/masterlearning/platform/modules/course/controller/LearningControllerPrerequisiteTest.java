@@ -6,6 +6,7 @@ import com.masterlearning.platform.modules.course.entity.Lesson;
 import com.masterlearning.platform.modules.course.entity.LessonPrerequisite;
 import com.masterlearning.platform.modules.course.repository.LessonPrerequisiteRepository;
 import com.masterlearning.platform.modules.course.repository.LessonRepository;
+import com.masterlearning.platform.modules.course.security.CourseAuthorizationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -24,6 +25,7 @@ class LearningControllerPrerequisiteTest {
 
     @Mock private LessonRepository lessons;
     @Mock private LessonPrerequisiteRepository prerequisites;
+    @Mock private CourseAuthorizationService authorization;
     @InjectMocks private LearningController controller;
 
     @Test
