@@ -5,6 +5,7 @@ import com.masterlearning.platform.modules.course.dto.request.*;
 import com.masterlearning.platform.modules.course.dto.response.EnrollmentResponse;
 import com.masterlearning.platform.modules.course.entity.*;
 import com.masterlearning.platform.modules.course.repository.*;
+import com.masterlearning.platform.modules.course.security.CourseAuthorizationService;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
@@ -26,6 +27,7 @@ public class LearningController {
     private final EnrollmentRepository enrollments;
     private final UserRepository users;
     private final LessonPrerequisiteRepository prerequisites;
+    private final CourseAuthorizationService authorization;
 
     public LearningController(CourseRepository c, CourseModuleRepository m, LessonRepository l,
                               EnrollmentRepository e, UserRepository u,
@@ -36,6 +38,7 @@ public class LearningController {
         enrollments = e;
         users = u;
         this.prerequisites = prerequisites;
+        this.authorization = authorization;
     }
 
     @PostMapping("/courses/{courseId}/modules")
@@ -44,6 +47,7 @@ public class LearningController {
                                                        @Valid @RequestBody CreateModuleRequest r) {
         var c = courses.findById(courseId)
                 .orElseThrow(() -> new EntityNotFoundException("Course not found"));
+        authorization.assertCanManage(c);
         var m = modules.save(new CourseModule(c, r.title(), r.sortOrder()));
         return ApiResponse.success("Module created", Map.of("id", m.getId(), "title", m.getTitle()));
     }
@@ -54,6 +58,7 @@ public class LearningController {
                                                        @Valid @RequestBody CreateLessonRequest r) {
         var m = modules.findById(moduleId)
                 .orElseThrow(() -> new EntityNotFoundException("Module not found"));
+        authorization.assertCanManage(m.getCourse());
         var l = lessons.save(new Lesson(
                 m, r.title(), r.contentType() == null ? "TEXT" : r.contentType(),
                 r.content(), r.sortOrder()
@@ -69,6 +74,7 @@ public class LearningController {
     ) {
         var lesson = lessons.findById(lessonId)
                 .orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
+        authorization.assertCanManage(lesson.getModule().getCourse());
 
         String mode = body.get("completionMode");
         if (mode == null || !Set.of(
@@ -165,6 +171,7 @@ public class LearningController {
     public ApiResponse<Map<String, Object>> dependencyGraph(@PathVariable UUID courseId) {
         var course = courses.findById(courseId)
                 .orElseThrow(() -> new EntityNotFoundException("Course not found"));
+        authorization.assertCanManage(course);
 
         List<Map<String, Object>> nodes = new ArrayList<>();
         List<Map<String, Object>> edges = new ArrayList<>();
