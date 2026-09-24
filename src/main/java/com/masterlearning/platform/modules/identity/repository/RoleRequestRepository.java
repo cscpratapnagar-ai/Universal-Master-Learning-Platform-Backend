@@ -23,6 +23,9 @@ public interface RoleRequestRepository extends JpaRepository<RoleRequest, UUID> 
     @EntityGraph(attributePaths = {"user", "reviewedBy"})
     List<RoleRequest> findByUser_IdOrderByCreatedAtDesc(UUID userId);
 
+    @EntityGraph(attributePaths = {"user", "user.roles", "reviewedBy", "reviewedBy.roles"})
+    List<RoleRequest> findAllByOrderByCreatedAtDesc();
+
     @Modifying
     @Query(value = """
         UPDATE role_requests
