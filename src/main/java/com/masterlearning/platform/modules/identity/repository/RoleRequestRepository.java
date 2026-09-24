@@ -3,9 +3,6 @@ package com.masterlearning.platform.modules.identity.repository;
 import com.masterlearning.platform.modules.identity.entity.RoleRequest;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,39 +19,4 @@ public interface RoleRequestRepository extends JpaRepository<RoleRequest, UUID> 
 
     @EntityGraph(attributePaths = {"user", "reviewedBy"})
     List<RoleRequest> findByUser_IdOrderByCreatedAtDesc(UUID userId);
-
-    @Modifying
-    @Query(value = """
-        INSERT INTO user_roles (user_id, role_id)
-        SELECT :userId, :roleId
-        WHERE NOT EXISTS (
-            SELECT 1 FROM user_roles
-            WHERE user_id = :userId AND role_id = :roleId
-        )
-        """, nativeQuery = true)
-    int grantRole(@Param("userId") UUID userId, @Param("roleId") UUID roleId);
-
-    @Modifying
-    @Query(value = """
-        UPDATE role_requests
-        SET status = 'APPROVED',
-            reviewed_at = CURRENT_TIMESTAMP,
-            reviewed_by = :reviewerId,
-            rejection_reason = NULL
-        WHERE id = :requestId
-          AND status = 'PENDING'
-        """, nativeQuery = true)
-    int approvePending(@Param("requestId") UUID requestId, @Param("reviewerId") UUID reviewerId);
-
-    @Modifying
-    @Query(value = """
-        UPDATE role_requests
-        SET status = 'REJECTED',
-            reviewed_at = CURRENT_TIMESTAMP,
-            reviewed_by = :reviewerId,
-            rejection_reason = :reason
-        WHERE id = :requestId
-          AND status = 'PENDING'
-        """, nativeQuery = true)
-    int rejectPending(@Param("requestId") UUID requestId, @Param("reviewerId") UUID reviewerId, @Param("reason") String reason);
 }
