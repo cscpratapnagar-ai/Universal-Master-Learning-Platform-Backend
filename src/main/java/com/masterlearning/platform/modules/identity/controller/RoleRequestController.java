@@ -58,7 +58,7 @@ public class RoleRequestController {
     @Transactional
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
     public ApiResponse<Map<String,Object>> approve(@PathVariable UUID id, @AuthenticationPrincipal CurrentUserPrincipal principal) {
-        RoleRequest request=requests.findWithUsersById(id).orElseThrow(()->new EntityNotFoundException("Role request not found"));
+        RoleRequest request=requests.findById(id).orElseThrow(()->new EntityNotFoundException("Role request not found"));
         if(!"PENDING".equals(request.getStatus())) throw new IllegalArgumentException("Only pending requests can be approved");
         User reviewer=users.findWithAuthoritiesById(principal.userId()).orElseThrow(()->new EntityNotFoundException("Reviewer not found"));
         if (SUPER_ADMIN_ONLY_ROLES.contains(request.getRequestedRole()) && reviewer.getRoles().stream().noneMatch(role -> "SUPER_ADMIN".equals(role.getCode()))) {
