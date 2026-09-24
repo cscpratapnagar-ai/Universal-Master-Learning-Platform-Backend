@@ -28,7 +28,32 @@ public class OrganizationServiceImpl implements OrganizationService {
  public void deactivate(UUID id){find(id).deactivate();}
  public void addMember(UUID organizationId,AddOrganizationMemberRequest r){Organization o=find(organizationId);if(members.existsByOrganizationIdAndUserId(organizationId,r.userId()))throw new ConflictException("User is already an organization member");User u=users.findById(r.userId()).orElseThrow(()->new ResourceNotFoundException("User not found"));members.save(new OrganizationMember(o,u));}
  @Transactional(readOnly=true) public List<OrganizationMemberResponse> getMembers(UUID organizationId){find(organizationId);return members.findAllByOrganizationIdAndActiveTrue(organizationId).stream().map(m->new OrganizationMemberResponse(m.getId(),m.getUser().getId(),m.getUser().getEmail(),m.getUser().getFirstName(),m.getUser().getLastName(),m.isActive())).toList();}
- @Transactional(readOnly=true) public List<OrganizationResponse> getCurrentUserOrganizations(){return members.findAllByUserIdAndActiveTrue(SecurityUtils.getCurrentUserId()).stream().map(m->mapper.toResponse(m.getOrganization())).toList();}
+ @Transactional public List<OrganizationResponse> getCurrentUserOrganizations(){
+  UUID userId=SecurityUtils.getCurrentUserId();
+  var existing=members.findAllByUserIdAndActiveTrue(userId);
+  if(existing.isEmpty()){
+    User user=users.findById(userId).orElseThrow(()->new ResourceNotFoundException("User not found"));
+    boolean orgAdmin=user.getRoles().stream().anyMatch(role -> "ORG_ADMIN".equals(role.getCode()));
+    if(orgAdmin){
+      String suffix=user.getId().toString().replace("-","").substring(0,10).toUpperCase(Locale.ROOT);
+      String code="ORG-"+suffix;
+      Organization organization=organizations.findByCode(code).orElseGet(() -> organizations.save(
+        new Organization(code,buildOrganizationName(user),"Organization workspace created during organization administrator onboarding.")
+      ));
+      if(!members.existsByOrganizationIdAndUserId(organization.getId(),userId)){
+        members.save(new OrganizationMember(organization,user));
+      }
+      existing=members.findAllByUserIdAndActiveTrue(userId);
+    }
+  }
+  return existing.stream().map(m->mapper.toResponse(m.getOrganization())).toList();
+ }
+ private String buildOrganizationName(User user){
+   String first=user.getFirstName()==null?"":user.getFirstName().trim();
+   String last=user.getLastName()==null?"":user.getLastName().trim();
+   String name=(first+" "+last).trim();
+   return name.isBlank()?"Organization Workspace":name+" Organization";
+ }
  private Organization find(UUID id){return organizations.findById(id).orElseThrow(()->new ResourceNotFoundException("Organization not found"));}
  private String trim(String value){return value==null?null:value.trim();}
  private OrganizationProfileResponse profile(Organization o){return new OrganizationProfileResponse(o.getId(),o.getCode(),o.getName(),o.getDescription(),o.isActive(),o.getSlug(),o.getLegalName(),o.getDisplayName(),o.getOrganizationType(),o.getRegistrationNumber(),o.getEstablishedDate(),o.getPrimaryEmail(),o.getPrimaryPhone(),o.getAlternatePhone(),o.getWebsite(),o.getAddressLine(),o.getCountry(),o.getState(),o.getCity(),o.getDistrict(),o.getPostalCode(),o.getLogoUrl(),o.getCoverImageUrl(),o.getPrimaryColor(),o.getSecondaryColor(),o.getStatus());}
