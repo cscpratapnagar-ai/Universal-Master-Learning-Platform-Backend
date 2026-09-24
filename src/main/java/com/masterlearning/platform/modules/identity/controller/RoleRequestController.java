@@ -7,6 +7,8 @@ import com.masterlearning.platform.modules.identity.repository.RoleRepository;
 import com.masterlearning.platform.modules.identity.repository.RoleRequestRepository;
 import com.masterlearning.platform.modules.user.entity.User;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
+import com.masterlearning.platform.modules.user.dto.request.UpdateUserRolesRequest;
+import com.masterlearning.platform.modules.user.service.UserManagementService;
 import com.masterlearning.platform.security.authority.CurrentUserPrincipal;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,10 +25,11 @@ public class RoleRequestController {
     private final RoleRequestRepository requests;
     private final UserRepository users;
     private final RoleRepository roles;
+    private final UserManagementService userManagement;
     private static final Set<String> SUPER_ADMIN_ONLY_ROLES = Set.of("ORG_ADMIN");
 
-    public RoleRequestController(RoleRequestRepository requests, UserRepository users, RoleRepository roles) {
-        this.requests=requests; this.users=users; this.roles=roles;
+    public RoleRequestController(RoleRequestRepository requests, UserRepository users, RoleRepository roles, UserManagementService userManagement) {
+        this.requests=requests; this.users=users; this.roles=roles; this.userManagement=userManagement;
     }
 
     @PostMapping("/role-requests")
@@ -64,12 +67,13 @@ public class RoleRequestController {
         if (SUPER_ADMIN_ONLY_ROLES.contains(request.getRequestedRole()) && reviewer.getRoles().stream().noneMatch(role -> "SUPER_ADMIN".equals(role.getCode()))) {
             throw new org.springframework.security.access.AccessDeniedException("Only a super administrator can approve organization administrator requests");
         }
-        var requestedRole=roles.findByCode(request.getRequestedRole()).orElseThrow(()->new EntityNotFoundException("Requested role does not exist: " + request.getRequestedRole()));
-        requests.grantRole(request.getUser().getId(), requestedRole.getId());
-        int updated=requests.approvePending(request.getId(), reviewer.getId());
-        if (updated != 1) throw new IllegalArgumentException("Role request was already processed");
-        RoleRequest approved=requests.findById(request.getId()).orElseThrow(()->new EntityNotFoundException("Approved role request could not be reloaded"));
-        return ApiResponse.success("Role request approved", view(approved));
+        roles.findByCode(request.getRequestedRole()).orElseThrow(()->new EntityNotFoundException("Requested role does not exist: " + request.getRequestedRole()));
+        Set<String> roleCodes = new HashSet<>(request.getUser().getRoles().stream().map(role -> role.getCode()).toList());
+        roleCodes.add(request.getRequestedRole());
+        userManagement.updateRoles(request.getUser().getId(), new UpdateUserRolesRequest(roleCodes));
+        request.approve(reviewer);
+        requests.save(request);
+        return ApiResponse.success("Role request approved", view(request));
     }
 
     @PostMapping("/admin/role-requests/{id}/reject")
