@@ -2,7 +2,6 @@ package com.masterlearning.platform.modules.organization.dto.response;
 
 import com.masterlearning.platform.modules.organization.entity.OrganizationStatus;
 
-import java.util.Map;
 import java.util.UUID;
 
 public record OrganizationOverviewResponse(
