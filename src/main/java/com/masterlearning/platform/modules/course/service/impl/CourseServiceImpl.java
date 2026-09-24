@@ -107,8 +107,8 @@ public class CourseServiceImpl implements CourseService {
             throw new IllegalStateException("Archived courses cannot be edited");
         }
 
-        module.updateDetails(r.title().trim(), normalizeOrder(r.sortOrder(), modules.findByCourseIdOrderBySortOrderAsc(module.getCourse().getId()).size()));
-        normalizeModuleOrder(module.getCourse().getId());
+        module.updateDetails(r.title().trim(), r.sortOrder());
+        reorderModule(module, r.sortOrder());
         var lessonResponses=lessons.findByModuleIdOrderBySortOrderAsc(moduleId).stream()
                 .map(this::mapLessonWithoutLearningState).toList();
         return new ModuleResponse(module.getId(),module.getTitle(),module.getSortOrder(),lessonResponses);
@@ -128,8 +128,8 @@ public class CourseServiceImpl implements CourseService {
                 r.title().trim(),
                 r.contentType()==null || r.contentType().isBlank() ? "TEXT" : r.contentType().trim().toUpperCase(),
                 r.content()==null ? null : r.content().trim(),
-                normalizeOrder(r.sortOrder(), lessons.findByModuleIdOrderBySortOrderAsc(lesson.getModule().getId()).size()));
-        normalizeLessonOrder(lesson.getModule().getId());
+                r.sortOrder());
+        reorderLesson(lesson, r.sortOrder());
         return mapLessonWithoutLearningState(lesson);
     }
 
@@ -168,22 +168,25 @@ public class CourseServiceImpl implements CourseService {
         }
     }
 
-    private int normalizeOrder(int requestedOrder, int size) {
-        return Math.max(0, Math.min(requestedOrder, Math.max(0, size - 1)));
-    }
-
-    private void normalizeModuleOrder(UUID courseId) {
-        var siblings = modules.findByCourseIdOrderBySortOrderAsc(courseId);
+    private void reorderModule(CourseModule target, int requestedOrder) {
+        var siblings = new ArrayList<>(modules.findByCourseIdOrderBySortOrderAsc(target.getCourse().getId()));
+        siblings.removeIf(item -> item.getId().equals(target.getId()));
+        int targetIndex = Math.max(0, Math.min(requestedOrder, siblings.size()));
+        siblings.add(targetIndex, target);
         for (int i = 0; i < siblings.size(); i++) {
-            siblings.get(i).updateDetails(siblings.get(i).getTitle(), i);
+            var item = siblings.get(i);
+            item.updateDetails(item.getTitle(), i);
         }
     }
 
-    private void normalizeLessonOrder(UUID moduleId) {
-        var siblings = lessons.findByModuleIdOrderBySortOrderAsc(moduleId);
+    private void reorderLesson(Lesson target, int requestedOrder) {
+        var siblings = new ArrayList<>(lessons.findByModuleIdOrderBySortOrderAsc(target.getModule().getId()));
+        siblings.removeIf(item -> item.getId().equals(target.getId()));
+        int targetIndex = Math.max(0, Math.min(requestedOrder, siblings.size()));
+        siblings.add(targetIndex, target);
         for (int i = 0; i < siblings.size(); i++) {
-            var lesson = siblings.get(i);
-            lesson.updateDetails(lesson.getTitle(), lesson.getContentType(), lesson.getContent(), i);
+            var item = siblings.get(i);
+            item.updateDetails(item.getTitle(), item.getContentType(), item.getContent(), i);
         }
     }
 
