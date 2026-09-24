@@ -32,6 +32,7 @@ import java.util.UUID;
 @Service
 @Transactional
 public class AuthServiceImpl implements AuthService {
+    private static final java.util.Set<String> PUBLIC_SIGNUP_REQUESTABLE_ROLES = java.util.Set.of("TEACHER", "INSTRUCTOR", "ORG_ADMIN");
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -69,6 +70,11 @@ public class AuthServiceImpl implements AuthService {
             throw new ConflictException("An account with this email already exists");
         }
 
+        String requestedRole = request.requestedRole() == null ? "" : request.requestedRole().trim().toUpperCase();
+        if (!requestedRole.isBlank() && !requestedRole.equals("LEARNER") && !PUBLIC_SIGNUP_REQUESTABLE_ROLES.contains(requestedRole)) {
+            throw new IllegalArgumentException("This role cannot be requested during public signup");
+        }
+
         User user = new User(
                 email,
                 passwordEncoder.encode(request.password()),
@@ -78,11 +84,7 @@ public class AuthServiceImpl implements AuthService {
 
         roleRepository.findByCode("LEARNER").ifPresent(user::assignRole);
         User saved = userRepository.save(user);
-        String requestedRole = request.requestedRole() == null ? "" : request.requestedRole().trim().toUpperCase();
         if (!requestedRole.isBlank() && !requestedRole.equals("LEARNER")) {
-            if (!java.util.Set.of("TEACHER", "INSTRUCTOR", "ORG_ADMIN").contains(requestedRole)) {
-                throw new IllegalArgumentException("This role cannot be requested during public signup");
-            }
             roleRequestRepository.save(new RoleRequest(saved, requestedRole, "Requested during signup"));
         }
         return issueTokens(saved);
@@ -111,6 +113,10 @@ public class AuthServiceImpl implements AuthService {
         int revoked = refreshTokenRepository.revokeIfActive(tokenHash, now, now);
         if (revoked != 1) {
             throw new UnauthorizedException("Refresh token is expired or revoked");
+        }
+
+        if (!storedToken.getUser().isEnabled()) {
+            throw new UnauthorizedException("Account is disabled");
         }
 
         return issueTokens(storedToken.getUser());
