@@ -6,6 +6,7 @@ import com.masterlearning.platform.modules.course.repository.CourseModuleReposit
 import com.masterlearning.platform.modules.course.repository.CourseRepository;
 import com.masterlearning.platform.modules.course.repository.LessonPrerequisiteRepository;
 import com.masterlearning.platform.modules.course.repository.LessonRepository;
+import com.masterlearning.platform.modules.course.security.CourseAuthorizationService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,22 +24,25 @@ public class AdminLearningCatalogController {
     private final CourseModuleRepository modules;
     private final LessonRepository lessons;
     private final LessonPrerequisiteRepository prerequisites;
+    private final CourseAuthorizationService authorization;
 
     public AdminLearningCatalogController(CourseRepository courses,
                                            CourseModuleRepository modules,
                                            LessonRepository lessons,
-                                           LessonPrerequisiteRepository prerequisites) {
+                                           LessonPrerequisiteRepository prerequisites,
+                                           CourseAuthorizationService authorization) {
         this.courses = courses;
         this.modules = modules;
         this.lessons = lessons;
         this.prerequisites = prerequisites;
+        this.authorization = authorization;
     }
 
     @GetMapping("/catalog")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
     @Transactional(readOnly = true)
     public ApiResponse<List<Map<String, Object>>> catalog() {
-        List<Map<String, Object>> data = courses.findAll().stream().map(course -> {
+        List<Map<String, Object>> data = (authorization.isTeacherOrInstructor() ? courses.findByCreatedById(com.masterlearning.platform.security.util.SecurityUtils.getCurrentUserId()) : courses.findAll()).stream().map(course -> {
             List<Map<String, Object>> moduleViews = modules.findByCourseIdOrderBySortOrderAsc(course.getId()).stream().map(module -> {
                 List<Map<String, Object>> lessonViews = lessons.findByModuleIdOrderBySortOrderAsc(module.getId()).stream().map(lesson -> {
                     Map<String, Object> view = new LinkedHashMap<>();
