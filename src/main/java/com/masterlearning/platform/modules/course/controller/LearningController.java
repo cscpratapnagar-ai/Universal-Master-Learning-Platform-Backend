@@ -139,9 +139,19 @@ public class LearningController {
             @PathVariable UUID lessonId,
             @PathVariable UUID prerequisiteLessonId
     ) {
+        var lesson = lessons.findById(lessonId)
+                .orElseThrow(() -> new EntityNotFoundException("Lesson not found"));
+        var prerequisite = lessons.findById(prerequisiteLessonId)
+                .orElseThrow(() -> new EntityNotFoundException("Prerequisite lesson not found"));
+        authorization.assertCanManage(lesson.getModule().getCourse());
+
         if (!prerequisites.existsByIdLessonIdAndIdPrerequisiteLessonId(
                 lessonId, prerequisiteLessonId)) {
             throw new EntityNotFoundException("Lesson prerequisite not found");
+        }
+
+        if (!lesson.getModule().getCourse().getId().equals(prerequisite.getModule().getCourse().getId())) {
+            throw new IllegalArgumentException("Prerequisite lesson must belong to the same course");
         }
 
         prerequisites.deleteByIdLessonIdAndIdPrerequisiteLessonId(
