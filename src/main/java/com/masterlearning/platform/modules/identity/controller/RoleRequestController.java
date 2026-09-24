@@ -58,12 +58,13 @@ public class RoleRequestController {
     public ApiResponse<Map<String,Object>> approve(@PathVariable UUID id, @AuthenticationPrincipal CurrentUserPrincipal principal) {
         RoleRequest request=requests.findById(id).orElseThrow(()->new EntityNotFoundException("Role request not found"));
         if(!"PENDING".equals(request.getStatus())) throw new IllegalArgumentException("Only pending requests can be approved");
-        User reviewer=users.findById(principal.userId()).orElseThrow(()->new EntityNotFoundException("Reviewer not found"));
+        User reviewer=users.findWithAuthoritiesById(principal.userId()).orElseThrow(()->new EntityNotFoundException("Reviewer not found"));
         if (SUPER_ADMIN_ONLY_ROLES.contains(request.getRequestedRole()) && reviewer.getRoles().stream().noneMatch(role -> "SUPER_ADMIN".equals(role.getCode()))) {
             throw new org.springframework.security.access.AccessDeniedException("Only a super administrator can approve organization administrator requests");
         }
-        roles.findByCode(request.getRequestedRole()).ifPresentOrElse(request.getUser()::assignRole,()->{throw new EntityNotFoundException("Requested role does not exist");});
-        users.save(request.getUser());
+        User requestedUser=users.findWithAuthoritiesById(request.getUser().getId()).orElseThrow(()->new EntityNotFoundException("Requested user not found"));
+        roles.findByCode(request.getRequestedRole()).ifPresentOrElse(requestedUser::assignRole,()->{throw new EntityNotFoundException("Requested role does not exist: " + request.getRequestedRole());});
+        users.save(requestedUser);
         request.approve(reviewer);
         requests.save(request);
         return ApiResponse.success("Role request approved", view(request));
