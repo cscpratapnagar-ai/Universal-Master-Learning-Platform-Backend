@@ -64,16 +64,12 @@ public class RoleRequestController {
         if (SUPER_ADMIN_ONLY_ROLES.contains(request.getRequestedRole()) && reviewer.getRoles().stream().noneMatch(role -> "SUPER_ADMIN".equals(role.getCode()))) {
             throw new org.springframework.security.access.AccessDeniedException("Only a super administrator can approve organization administrator requests");
         }
-        User requestedUser=request.getUser();
         var requestedRole=roles.findByCode(request.getRequestedRole()).orElseThrow(()->new EntityNotFoundException("Requested role does not exist: " + request.getRequestedRole()));
-        boolean alreadyAssigned=requestedUser.getRoles().stream().anyMatch(role -> requestedRole.getId().equals(role.getId()));
-        if (!alreadyAssigned) {
-            requestedUser.assignRole(requestedRole);
-            users.save(requestedUser);
-        }
-        request.approve(reviewer);
-        requests.save(request);
-        return ApiResponse.success("Role request approved", view(request));
+        requests.grantRole(request.getUser().getId(), requestedRole.getId());
+        int updated=requests.approvePending(request.getId(), reviewer.getId());
+        if (updated != 1) throw new IllegalArgumentException("Role request was already processed");
+        RoleRequest approved=requests.findById(request.getId()).orElseThrow(()->new EntityNotFoundException("Approved role request could not be reloaded"));
+        return ApiResponse.success("Role request approved", view(approved));
     }
 
     @PostMapping("/admin/role-requests/{id}/reject")
@@ -83,10 +79,12 @@ public class RoleRequestController {
                                                     @AuthenticationPrincipal CurrentUserPrincipal principal) {
         RoleRequest request=requests.findById(id).orElseThrow(()->new EntityNotFoundException("Role request not found"));
         if(!"PENDING".equals(request.getStatus())) throw new IllegalArgumentException("Only pending requests can be rejected");
-        User reviewer=users.findById(principal.userId()).orElseThrow(()->new EntityNotFoundException("Reviewer not found"));
-        request.reject(reviewer, reason == null ? "Request rejected by administrator" : reason.trim());
-        requests.save(request);
-        return ApiResponse.success("Role request rejected", view(request));
+        User reviewer=users.findWithAuthoritiesById(principal.userId()).orElseThrow(()->new EntityNotFoundException("Reviewer not found"));
+        String rejectionReason=reason == null || reason.isBlank() ? "Request rejected by administrator" : reason.trim();
+        int updated=requests.rejectPending(request.getId(), reviewer.getId(), rejectionReason);
+        if (updated != 1) throw new IllegalArgumentException("Role request was already processed");
+        RoleRequest rejected=requests.findById(request.getId()).orElseThrow(()->new EntityNotFoundException("Rejected role request could not be reloaded"));
+        return ApiResponse.success("Role request rejected", view(rejected));
     }
 
     private Map<String,Object> view(RoleRequest r) {
