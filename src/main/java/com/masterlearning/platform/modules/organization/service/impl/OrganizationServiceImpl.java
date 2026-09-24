@@ -27,6 +27,11 @@ public class OrganizationServiceImpl implements OrganizationService {
  @Transactional(readOnly=true) public List<OrganizationResponse> getAll(){return organizations.findAll().stream().map(mapper::toResponse).toList();}
  public void deactivate(UUID id){find(id).deactivate();}
  public void addMember(UUID organizationId,AddOrganizationMemberRequest r){Organization o=find(organizationId);if(!o.isActive())throw new ConflictException("Organization is inactive");if(members.existsByOrganizationIdAndUserId(organizationId,r.userId()))throw new ConflictException("User is already an organization member");User u=users.findById(r.userId()).orElseThrow(()->new ResourceNotFoundException("User not found"));members.save(new OrganizationMember(o,u));}
+ public void inviteMember(UUID organizationId,InviteOrganizationMemberRequest r){
+   Organization o=find(organizationId);if(!o.isActive())throw new ConflictException("Organization is inactive");
+   User u=users.findByEmailIgnoreCase(r.email().trim()).orElseThrow(()->new ResourceNotFoundException("No user exists with that email"));
+   addMember(organizationId,new AddOrganizationMemberRequest(u.getId()));
+ }
  public void deactivateMember(UUID organizationId,UUID memberId){find(organizationId);OrganizationMember member=members.findById(memberId).orElseThrow(()->new ResourceNotFoundException("Organization member not found"));if(!organizationId.equals(member.getOrganization().getId()))throw new ResourceNotFoundException("Organization member not found");member.deactivate();}
  @Transactional(readOnly=true) public List<OrganizationMemberResponse> getMembers(UUID organizationId){find(organizationId);return members.findAllByOrganizationIdAndActiveTrue(organizationId).stream().map(m->new OrganizationMemberResponse(m.getId(),m.getUser().getId(),m.getUser().getEmail(),m.getUser().getFirstName(),m.getUser().getLastName(),m.isActive())).toList();}
  @Transactional public List<OrganizationResponse> getCurrentUserOrganizations(){
