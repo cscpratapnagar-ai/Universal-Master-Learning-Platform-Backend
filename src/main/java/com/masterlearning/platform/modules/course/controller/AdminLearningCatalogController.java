@@ -35,7 +35,7 @@ public class AdminLearningCatalogController {
     }
 
     @GetMapping("/catalog")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
     @Transactional(readOnly = true)
     public ApiResponse<List<Map<String, Object>>> catalog() {
         List<Map<String, Object>> data = courses.findAll().stream().map(course -> {
