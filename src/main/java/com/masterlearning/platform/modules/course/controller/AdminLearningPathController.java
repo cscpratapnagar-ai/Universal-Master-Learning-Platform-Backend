@@ -5,6 +5,7 @@ import com.masterlearning.platform.modules.course.entity.Lesson;
 import com.masterlearning.platform.modules.course.entity.LessonPrerequisite;
 import com.masterlearning.platform.modules.course.repository.LessonPrerequisiteRepository;
 import com.masterlearning.platform.modules.course.repository.LessonRepository;
+import com.masterlearning.platform.modules.course.security.CourseAuthorizationService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -22,16 +23,19 @@ import java.util.UUID;
 public class AdminLearningPathController {
     private final LessonRepository lessons;
     private final LessonPrerequisiteRepository prerequisites;
+    private final CourseAuthorizationService authorization;
 
-    public AdminLearningPathController(LessonRepository lessons, LessonPrerequisiteRepository prerequisites) {
+    public AdminLearningPathController(LessonRepository lessons, LessonPrerequisiteRepository prerequisites, CourseAuthorizationService authorization) {
         this.lessons = lessons;
         this.prerequisites = prerequisites;
+        this.authorization = authorization;
     }
 
     @GetMapping("/lessons/{lessonId}/prerequisites")
     @Transactional(readOnly = true)
     public ApiResponse<List<Map<String, Object>>> getPrerequisites(@PathVariable UUID lessonId) {
         Lesson lesson = getLesson(lessonId);
+        authorization.assertCanManage(lesson.getModule().getCourse());
         List<Map<String, Object>> data = prerequisites.findByIdLessonId(lessonId).stream()
                 .map(LessonPrerequisite::getPrerequisiteLessonId)
                 .map(this::lessonView)
@@ -47,6 +51,7 @@ public class AdminLearningPathController {
     ) {
         Lesson lesson = getLesson(lessonId);
         Lesson prerequisite = getLesson(prerequisiteLessonId);
+        authorization.assertCanManage(lesson.getModule().getCourse());
 
         if (lessonId.equals(prerequisiteLessonId)) {
             throw new IllegalArgumentException("A lesson cannot be its own prerequisite");
@@ -74,8 +79,9 @@ public class AdminLearningPathController {
             @PathVariable UUID lessonId,
             @PathVariable UUID prerequisiteLessonId
     ) {
-        getLesson(lessonId);
-        getLesson(prerequisiteLessonId);
+        Lesson lesson = getLesson(lessonId);
+        Lesson prerequisite = getLesson(prerequisiteLessonId);
+        authorization.assertCanManage(lesson.getModule().getCourse());
         prerequisites.deleteByIdLessonIdAndIdPrerequisiteLessonId(lessonId, prerequisiteLessonId);
         return ApiResponse.success("Prerequisite removed", Map.of(
                 "lessonId", lessonId,
