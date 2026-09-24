@@ -58,15 +58,19 @@ public class RoleRequestController {
     @Transactional
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
     public ApiResponse<Map<String,Object>> approve(@PathVariable UUID id, @AuthenticationPrincipal CurrentUserPrincipal principal) {
-        RoleRequest request=requests.findById(id).orElseThrow(()->new EntityNotFoundException("Role request not found"));
+        RoleRequest request=requests.findWithUsersById(id).orElseThrow(()->new EntityNotFoundException("Role request not found"));
         if(!"PENDING".equals(request.getStatus())) throw new IllegalArgumentException("Only pending requests can be approved");
         User reviewer=users.findWithAuthoritiesById(principal.userId()).orElseThrow(()->new EntityNotFoundException("Reviewer not found"));
         if (SUPER_ADMIN_ONLY_ROLES.contains(request.getRequestedRole()) && reviewer.getRoles().stream().noneMatch(role -> "SUPER_ADMIN".equals(role.getCode()))) {
             throw new org.springframework.security.access.AccessDeniedException("Only a super administrator can approve organization administrator requests");
         }
-        User requestedUser=users.findWithAuthoritiesById(request.getUser().getId()).orElseThrow(()->new EntityNotFoundException("Requested user not found"));
-        roles.findByCode(request.getRequestedRole()).ifPresentOrElse(requestedUser::assignRole,()->{throw new EntityNotFoundException("Requested role does not exist: " + request.getRequestedRole());});
-        users.save(requestedUser);
+        User requestedUser=request.getUser();
+        var requestedRole=roles.findByCode(request.getRequestedRole()).orElseThrow(()->new EntityNotFoundException("Requested role does not exist: " + request.getRequestedRole()));
+        boolean alreadyAssigned=requestedUser.getRoles().stream().anyMatch(role -> requestedRole.getId().equals(role.getId()));
+        if (!alreadyAssigned) {
+            requestedUser.assignRole(requestedRole);
+            users.save(requestedUser);
+        }
         request.approve(reviewer);
         requests.save(request);
         return ApiResponse.success("Role request approved", view(request));
