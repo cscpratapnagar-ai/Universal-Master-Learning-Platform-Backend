@@ -34,6 +34,12 @@ public class Assessment extends BaseEntity {
         this.course=course; this.module=module; this.lesson=lesson; this.assessmentLevel=assessmentLevel;
         this.title=title; this.passingScore=passingScore; this.maxAttempts=maxAttempts;
     }
+    public void updateDetails(String title, int passingScore, int maxAttempts) {
+        this.title = title.trim();
+        this.passingScore = passingScore;
+        this.maxAttempts = maxAttempts;
+    }
+
     public UUID getId(){return id;} public Course getCourse(){return course;} public CourseModule getModule(){return module;}
     public Lesson getLesson(){return lesson;} public String getAssessmentLevel(){return assessmentLevel;}
     public String getTitle(){return title;} public int getPassingScore(){return passingScore;} public int getMaxAttempts(){return maxAttempts;}
