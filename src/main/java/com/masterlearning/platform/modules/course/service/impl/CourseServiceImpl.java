@@ -41,14 +41,15 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     public CourseResponse create(CreateCourseRequest r){
-        if(courses.findBySlug(r.slug()).isPresent()) {
+        String normalizedSlug = normalizeSlug(r.slug());
+        if(courses.findBySlug(normalizedSlug).isPresent()) {
             throw new IllegalArgumentException("Course slug already exists");
         }
         var org=r.organizationId()==null?null:organizations.findById(r.organizationId())
                 .orElseThrow(()->new EntityNotFoundException("Organization not found"));
         var user=users.findById(SecurityUtils.getCurrentUserId())
                 .orElseThrow(()->new EntityNotFoundException("Authenticated user not found"));
-        return map(courses.save(new Course(r.title(),r.slug(),r.description(),org,user)));
+        return map(courses.save(new Course(r.title().trim(),normalizedSlug,normalizeDescription(r.description()),org,user)));
     }
 
     @Override
@@ -56,7 +57,8 @@ public class CourseServiceImpl implements CourseService {
         var course=findCourse(id);
         authorization.assertCanManage(course);
 
-        var existing=courses.findBySlug(r.slug());
+        String normalizedSlug = normalizeSlug(r.slug());
+        var existing=courses.findBySlug(normalizedSlug);
         if(existing.isPresent() && !existing.get().getId().equals(id)) {
             throw new IllegalArgumentException("Course slug already exists");
         }
@@ -68,7 +70,7 @@ public class CourseServiceImpl implements CourseService {
             throw new IllegalStateException("Archived courses cannot be edited");
         }
 
-        course.updateDetails(r.title(),r.slug(),r.description(),org);
+        course.updateDetails(r.title().trim(),normalizedSlug,normalizeDescription(r.description()),org);
         return map(course);
     }
 
@@ -135,8 +137,17 @@ public class CourseServiceImpl implements CourseService {
 
     private void validatePublishable(Course course){
         var moduleList=modules.findByCourseIdOrderBySortOrderAsc(course.getId());
+        if(course.getTitle()==null || course.getTitle().isBlank()) {
+            throw new IllegalStateException("Course title is required before publishing");
+        }
+        if(course.getDescription()==null || course.getDescription().isBlank()) {
+            throw new IllegalStateException("Course description is required before publishing");
+        }
         if(moduleList.isEmpty()) {
             throw new IllegalStateException("Course must contain at least one module before publishing");
+        }
+        if(moduleList.stream().anyMatch(m -> m.getTitle()==null || m.getTitle().isBlank())) {
+            throw new IllegalStateException("Every module must have a title before publishing");
         }
         var totalLessons=moduleList.stream()
                 .mapToInt(m -> lessons.findByModuleIdOrderBySortOrderAsc(m.getId()).size())
@@ -144,6 +155,23 @@ public class CourseServiceImpl implements CourseService {
         if(totalLessons==0) {
             throw new IllegalStateException("Course must contain at least one lesson before publishing");
         }
+        for (var module : moduleList) {
+            var moduleLessons = lessons.findByModuleIdOrderBySortOrderAsc(module.getId());
+            if (moduleLessons.stream().anyMatch(l -> l.getTitle()==null || l.getTitle().isBlank())) {
+                throw new IllegalStateException("Every lesson must have a title before publishing");
+            }
+            if (moduleLessons.stream().anyMatch(l -> l.getContent()==null || l.getContent().isBlank())) {
+                throw new IllegalStateException("Every lesson must have content before publishing");
+            }
+        }
+    }
+
+    private String normalizeSlug(String slug) {
+        return slug == null ? "" : slug.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeDescription(String description) {
+        return description == null ? null : description.trim();
     }
 
     private CourseResponse map(Course c){
