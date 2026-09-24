@@ -3,6 +3,8 @@ package com.masterlearning.platform.modules.assessment.controller;
 import com.masterlearning.platform.common.api.ApiResponse;
 import com.masterlearning.platform.modules.assessment.dto.request.CreateAssessmentRequest;
 import com.masterlearning.platform.modules.assessment.dto.request.CreateQuestionRequest;
+import com.masterlearning.platform.modules.assessment.dto.request.UpdateAssessmentRequest;
+import com.masterlearning.platform.modules.assessment.dto.request.UpdateQuestionRequest;
 import com.masterlearning.platform.modules.assessment.entity.Assessment;
 import com.masterlearning.platform.modules.assessment.entity.Question;
 import com.masterlearning.platform.modules.assessment.entity.QuestionOption;
@@ -82,6 +84,54 @@ public class AssessmentController {
         CourseModule module = lesson.getModule();
         Assessment assessment = assessments.saveAndFlush(new Assessment(module.getCourse(), module, lesson, "LESSON", request.title(), request.passingScore(), maxAttempts(request)));
         return ApiResponse.success("Lesson assessment created and completion gate enabled", Map.of("id", assessment.getId(), "title", assessment.getTitle(), "level", assessment.getAssessmentLevel()));
+    }
+
+    @PutMapping("/{assessmentId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @Transactional
+    public ApiResponse<Map<String,Object>> updateAssessment(@PathVariable UUID assessmentId,
+                                                              @Valid @RequestBody UpdateAssessmentRequest request) {
+        Assessment assessment = assessments.findById(assessmentId)
+                .orElseThrow(() -> new EntityNotFoundException("Assessment not found"));
+        authorization.assertCanManage(assessment.getCourse());
+        int maxAttempts = request.maxAttempts() == null ? 3 : request.maxAttempts();
+        assessment.updateDetails(request.title(), request.passingScore(), maxAttempts);
+        return ApiResponse.success("Assessment updated", Map.of(
+                "id", assessment.getId(),
+                "title", assessment.getTitle(),
+                "level", assessment.getAssessmentLevel(),
+                "passingScore", assessment.getPassingScore(),
+                "maxAttempts", assessment.getMaxAttempts()));
+    }
+
+    @PutMapping("/{assessmentId}/questions/{questionId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @Transactional
+    public ApiResponse<Map<String,Object>> updateQuestion(@PathVariable UUID assessmentId,
+                                                            @PathVariable UUID questionId,
+                                                            @Valid @RequestBody UpdateQuestionRequest request) {
+        Assessment assessment = assessments.findById(assessmentId)
+                .orElseThrow(() -> new EntityNotFoundException("Assessment not found"));
+        authorization.assertCanManage(assessment.getCourse());
+        Question question = questions.findById(questionId)
+                .orElseThrow(() -> new EntityNotFoundException("Question not found"));
+        if (!question.getAssessment().getId().equals(assessmentId)) {
+            throw new IllegalArgumentException("Question does not belong to the selected assessment");
+        }
+        if (request.options().stream().noneMatch(UpdateQuestionRequest.Option::correct)) {
+            throw new IllegalArgumentException("At least one correct option is required");
+        }
+
+        question.updateDetails(request.questionText(), request.questionType(), request.points(), request.difficultyLevel());
+        options.deleteAll(options.findByQuestionId(questionId));
+        options.saveAll(request.options().stream()
+                .map(option -> new QuestionOption(question, option.text().trim(), option.correct()))
+                .toList());
+        options.flush();
+
+        return ApiResponse.success("Question updated", Map.of(
+                "id", question.getId(),
+                "assessmentId", assessment.getId()));
     }
 
     @GetMapping("/courses/{courseId}")
