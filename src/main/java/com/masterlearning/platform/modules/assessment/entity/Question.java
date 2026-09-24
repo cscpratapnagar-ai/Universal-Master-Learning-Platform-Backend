@@ -42,6 +42,13 @@ public class Question extends BaseEntity {
         this.difficultyLevel = difficultyLevel == null ? "MEDIUM" : difficultyLevel.toUpperCase();
     }
 
+    public void updateDetails(String questionText, String questionType, int points, String difficultyLevel) {
+        this.questionText = questionText.trim();
+        this.questionType = questionType == null || questionType.isBlank() ? "SINGLE_CHOICE" : questionType.trim().toUpperCase();
+        this.points = points;
+        this.difficultyLevel = difficultyLevel == null || difficultyLevel.isBlank() ? "MEDIUM" : difficultyLevel.trim().toUpperCase();
+    }
+
     public UUID getId() { return id; }
     public Assessment getAssessment() { return assessment; }
     public String getQuestionText() { return questionText; }
