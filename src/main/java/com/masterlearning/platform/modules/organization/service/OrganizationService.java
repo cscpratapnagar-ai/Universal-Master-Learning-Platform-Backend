@@ -1,5 +1,6 @@
 package com.masterlearning.platform.modules.organization.service;
 
+import com.masterlearning.platform.modules.course.dto.response.CourseResponse;
 import com.masterlearning.platform.modules.organization.dto.request.*;
 import com.masterlearning.platform.modules.organization.dto.response.*;
 
@@ -20,4 +21,5 @@ public interface OrganizationService {
     void deactivateMember(UUID organizationId, UUID memberId);
     List<OrganizationResponse> getCurrentUserOrganizations();
     OrganizationOverviewResponse getOverview(UUID organizationId);
+    List<CourseResponse> getCourses(UUID organizationId);
 }
