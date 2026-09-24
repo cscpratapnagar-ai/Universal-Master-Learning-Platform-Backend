@@ -7,6 +7,7 @@ import com.masterlearning.platform.modules.course.repository.CourseRepository;
 import com.masterlearning.platform.modules.course.repository.LessonPrerequisiteRepository;
 import com.masterlearning.platform.modules.course.repository.LessonRepository;
 import com.masterlearning.platform.modules.course.security.CourseAuthorizationService;
+import com.masterlearning.platform.security.util.SecurityUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,11 +27,12 @@ public class AdminLearningCatalogController {
     private final LessonPrerequisiteRepository prerequisites;
     private final CourseAuthorizationService authorization;
 
-    public AdminLearningCatalogController(CourseRepository courses,
-                                           CourseModuleRepository modules,
-                                           LessonRepository lessons,
-                                           LessonPrerequisiteRepository prerequisites,
-                                           CourseAuthorizationService authorization) {
+    public AdminLearningCatalogController(
+            CourseRepository courses,
+            CourseModuleRepository modules,
+            LessonRepository lessons,
+            LessonPrerequisiteRepository prerequisites,
+            CourseAuthorizationService authorization) {
         this.courses = courses;
         this.modules = modules;
         this.lessons = lessons;
@@ -42,12 +44,18 @@ public class AdminLearningCatalogController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
     @Transactional(readOnly = true)
     public ApiResponse<List<Map<String, Object>>> catalog() {
-        List<Map<String, Object>> data = (authorization.isTeacherOrInstructor() ? courses.findByCreatedById(com.masterlearning.platform.security.util.SecurityUtils.getCurrentUserId()) : courses.findAll()).stream().map(course -> {
+        var catalogCourses = authorization.isTeacherOrInstructor()
+                ? courses.findByCreatedById(SecurityUtils.getCurrentUserId())
+                : courses.findAll();
+
+        List<Map<String, Object>> data = catalogCourses.stream().map(course -> {
             List<Map<String, Object>> moduleViews = modules.findByCourseIdOrderBySortOrderAsc(course.getId()).stream().map(module -> {
                 List<Map<String, Object>> lessonViews = lessons.findByModuleIdOrderBySortOrderAsc(module.getId()).stream().map(lesson -> {
                     Map<String, Object> view = new LinkedHashMap<>();
                     view.put("id", lesson.getId());
                     view.put("title", lesson.getTitle());
+                    view.put("contentType", lesson.getContentType());
+                    view.put("content", lesson.getContent());
                     view.put("sortOrder", lesson.getSortOrder());
                     view.put("completionMode", lesson.getCompletionMode());
                     view.put("prerequisiteLessonIds", prerequisites.findByIdLessonId(lesson.getId()).stream()
@@ -68,6 +76,7 @@ public class AdminLearningCatalogController {
             view.put("id", course.getId());
             view.put("title", course.getTitle());
             view.put("slug", course.getSlug());
+            view.put("description", course.getDescription());
             view.put("status", course.getStatus().name());
             view.put("modules", moduleViews);
             return view;
