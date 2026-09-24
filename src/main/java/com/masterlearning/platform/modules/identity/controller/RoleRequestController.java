@@ -9,6 +9,10 @@ import com.masterlearning.platform.modules.user.entity.User;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.modules.user.dto.request.UpdateUserRolesRequest;
 import com.masterlearning.platform.modules.user.service.UserManagementService;
+import com.masterlearning.platform.modules.organization.entity.Organization;
+import com.masterlearning.platform.modules.organization.entity.OrganizationMember;
+import com.masterlearning.platform.modules.organization.repository.OrganizationRepository;
+import com.masterlearning.platform.modules.organization.repository.OrganizationMemberRepository;
 import com.masterlearning.platform.security.authority.CurrentUserPrincipal;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,10 +30,12 @@ public class RoleRequestController {
     private final UserRepository users;
     private final RoleRepository roles;
     private final UserManagementService userManagement;
+    private final OrganizationRepository organizations;
+    private final OrganizationMemberRepository organizationMembers;
     private static final Set<String> SUPER_ADMIN_ONLY_ROLES = Set.of("ORG_ADMIN");
 
-    public RoleRequestController(RoleRequestRepository requests, UserRepository users, RoleRepository roles, UserManagementService userManagement) {
-        this.requests=requests; this.users=users; this.roles=roles; this.userManagement=userManagement;
+    public RoleRequestController(RoleRequestRepository requests, UserRepository users, RoleRepository roles, UserManagementService userManagement, OrganizationRepository organizations, OrganizationMemberRepository organizationMembers) {
+        this.requests=requests; this.users=users; this.roles=roles; this.userManagement=userManagement; this.organizations=organizations; this.organizationMembers=organizationMembers;
     }
 
     @PostMapping("/role-requests")
@@ -71,9 +77,56 @@ public class RoleRequestController {
         Set<String> roleCodes = new HashSet<>(request.getUser().getRoles().stream().map(role -> role.getCode()).toList());
         roleCodes.add(request.getRequestedRole());
         userManagement.updateRoles(request.getUser().getId(), new UpdateUserRolesRequest(roleCodes));
+
+        UUID organizationId = null;
+        if ("ORG_ADMIN".equals(request.getRequestedRole())) {
+            User applicant = request.getUser();
+            var organization = organizations.findAll().stream()
+                    .filter(o -> applicant.getEmail().equalsIgnoreCase(o.getPrimaryEmail()))
+                    .findFirst()
+                    .orElseGet(() -> {
+                        String suffix = applicant.getId().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT);
+                        String code = "ORG-" + suffix;
+                        Organization created = organizations.save(new Organization(
+                                code,
+                                buildOrganizationName(applicant),
+                                "Organization workspace created during approved organization administrator onboarding."
+                        ));
+                        created.updateProfile(
+                                "org-" + suffix.toLowerCase(Locale.ROOT),
+                                created.getName(),
+                                created.getName(),
+                                "INSTITUTE",
+                                null,
+                                null,
+                                applicant.getEmail(),
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null
+                        );
+                        return created;
+                    });
+            if (!organizationMembers.existsByOrganizationIdAndUserId(organization.getId(), applicant.getId())) {
+                organizationMembers.save(new OrganizationMember(organization, applicant));
+            }
+            organizationId = organization.getId();
+        }
+
         request.approve(reviewer);
         requests.save(request);
-        return ApiResponse.success("Role request approved", view(request));
+        Map<String,Object> response = new LinkedHashMap<>(view(request));
+        if (organizationId != null) response.put("organizationId", organizationId);
+        return ApiResponse.success("Role request approved", response);
     }
 
     @PostMapping("/admin/role-requests/{id}/reject")
@@ -89,6 +142,13 @@ public class RoleRequestController {
         if (updated != 1) throw new IllegalArgumentException("Role request was already processed");
         RoleRequest rejected=requests.findById(request.getId()).orElseThrow(()->new EntityNotFoundException("Rejected role request could not be reloaded"));
         return ApiResponse.success("Role request rejected", view(rejected));
+    }
+
+    private String buildOrganizationName(User user) {
+        String first = user.getFirstName() == null ? "" : user.getFirstName().trim();
+        String last = user.getLastName() == null ? "" : user.getLastName().trim();
+        String name = (first + " " + last).trim();
+        return name.isBlank() ? "Organization Workspace" : name + " Organization";
     }
 
     private Map<String,Object> view(RoleRequest r) {
