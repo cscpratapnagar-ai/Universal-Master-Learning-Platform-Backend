@@ -107,7 +107,8 @@ public class CourseServiceImpl implements CourseService {
             throw new IllegalStateException("Archived courses cannot be edited");
         }
 
-        module.updateDetails(r.title(),r.sortOrder());
+        module.updateDetails(r.title().trim(), normalizeOrder(r.sortOrder(), modules.findByCourseIdOrderBySortOrderAsc(module.getCourse().getId()).size()));
+        normalizeModuleOrder(module.getCourse().getId());
         var lessonResponses=lessons.findByModuleIdOrderBySortOrderAsc(moduleId).stream()
                 .map(this::mapLessonWithoutLearningState).toList();
         return new ModuleResponse(module.getId(),module.getTitle(),module.getSortOrder(),lessonResponses);
@@ -124,10 +125,11 @@ public class CourseServiceImpl implements CourseService {
         }
 
         lesson.updateDetails(
-                r.title(),
+                r.title().trim(),
                 r.contentType()==null || r.contentType().isBlank() ? "TEXT" : r.contentType().trim().toUpperCase(),
-                r.content(),
-                r.sortOrder());
+                r.content()==null ? null : r.content().trim(),
+                normalizeOrder(r.sortOrder(), lessons.findByModuleIdOrderBySortOrderAsc(lesson.getModule().getId()).size()));
+        normalizeLessonOrder(lesson.getModule().getId());
         return mapLessonWithoutLearningState(lesson);
     }
 
@@ -163,6 +165,25 @@ public class CourseServiceImpl implements CourseService {
             if (moduleLessons.stream().anyMatch(l -> l.getContent()==null || l.getContent().isBlank())) {
                 throw new IllegalStateException("Every lesson must have content before publishing");
             }
+        }
+    }
+
+    private int normalizeOrder(int requestedOrder, int size) {
+        return Math.max(0, Math.min(requestedOrder, Math.max(0, size - 1)));
+    }
+
+    private void normalizeModuleOrder(UUID courseId) {
+        var siblings = modules.findByCourseIdOrderBySortOrderAsc(courseId);
+        for (int i = 0; i < siblings.size(); i++) {
+            siblings.get(i).updateDetails(siblings.get(i).getTitle(), i);
+        }
+    }
+
+    private void normalizeLessonOrder(UUID moduleId) {
+        var siblings = lessons.findByModuleIdOrderBySortOrderAsc(moduleId);
+        for (int i = 0; i < siblings.size(); i++) {
+            var lesson = siblings.get(i);
+            lesson.updateDetails(lesson.getTitle(), lesson.getContentType(), lesson.getContent(), i);
         }
     }
 
