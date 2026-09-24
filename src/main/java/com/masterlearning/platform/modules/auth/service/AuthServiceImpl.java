@@ -12,6 +12,8 @@ import com.masterlearning.platform.modules.auth.repository.RefreshTokenRepositor
 import com.masterlearning.platform.modules.auth.repository.PasswordResetTokenRepository;
 import com.masterlearning.platform.modules.auth.entity.PasswordResetToken;
 import com.masterlearning.platform.modules.identity.repository.RoleRepository;
+import com.masterlearning.platform.modules.identity.entity.RoleRequest;
+import com.masterlearning.platform.modules.identity.repository.RoleRequestRepository;
 import com.masterlearning.platform.modules.user.entity.User;
 import com.masterlearning.platform.modules.user.mapper.UserMapper;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
@@ -33,6 +35,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final RoleRequestRepository roleRequestRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
@@ -42,6 +45,7 @@ public class AuthServiceImpl implements AuthService {
     public AuthServiceImpl(
             UserRepository userRepository,
             RoleRepository roleRepository,
+            RoleRequestRepository roleRequestRepository,
             RefreshTokenRepository refreshTokenRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
             PasswordEncoder passwordEncoder,
@@ -50,6 +54,7 @@ public class AuthServiceImpl implements AuthService {
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.roleRequestRepository = roleRequestRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
@@ -72,7 +77,15 @@ public class AuthServiceImpl implements AuthService {
         );
 
         roleRepository.findByCode("LEARNER").ifPresent(user::assignRole);
-        return issueTokens(userRepository.save(user));
+        User saved = userRepository.save(user);
+        String requestedRole = request.requestedRole() == null ? "" : request.requestedRole().trim().toUpperCase();
+        if (!requestedRole.isBlank() && !requestedRole.equals("LEARNER")) {
+            if (!java.util.Set.of("TEACHER", "INSTRUCTOR", "ORG_ADMIN").contains(requestedRole)) {
+                throw new IllegalArgumentException("This role cannot be requested during public signup");
+            }
+            roleRequestRepository.save(new RoleRequest(saved, requestedRole, "Requested during signup"));
+        }
+        return issueTokens(saved);
     }
 
     @Override
