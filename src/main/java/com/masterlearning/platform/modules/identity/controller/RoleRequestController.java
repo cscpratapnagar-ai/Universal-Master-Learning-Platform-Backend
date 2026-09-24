@@ -9,6 +9,7 @@ import com.masterlearning.platform.modules.user.entity.User;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.security.authority.CurrentUserPrincipal;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.transaction.annotation.Transactional;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -54,6 +55,7 @@ public class RoleRequestController {
     }
 
     @PostMapping("/admin/role-requests/{id}/approve")
+    @Transactional
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
     public ApiResponse<Map<String,Object>> approve(@PathVariable UUID id, @AuthenticationPrincipal CurrentUserPrincipal principal) {
         RoleRequest request=requests.findById(id).orElseThrow(()->new EntityNotFoundException("Role request not found"));
@@ -71,6 +73,7 @@ public class RoleRequestController {
     }
 
     @PostMapping("/admin/role-requests/{id}/reject")
+    @Transactional
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
     public ApiResponse<Map<String,Object>> reject(@PathVariable UUID id, @RequestParam(required=false) String reason,
                                                     @AuthenticationPrincipal CurrentUserPrincipal principal) {
