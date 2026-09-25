@@ -74,6 +74,19 @@ public class OrganizationServiceImpl implements OrganizationService {
    find(organizationId);
    OrganizationMember member=members.findById(memberId).orElseThrow(()->new ResourceNotFoundException("Organization member not found"));
    if(!organizationId.equals(member.getOrganization().getId()))throw new ResourceNotFoundException("Organization member not found");
+
+   UUID currentUserId = SecurityUtils.getCurrentUserId();
+   boolean superAdmin = hasRole("SUPER_ADMIN");
+   if (member.getUser().getId().equals(currentUserId)) {
+     throw new AccessDeniedException("An organization administrator cannot deactivate their own organization membership. A Super Admin must perform this action.");
+   }
+
+   boolean targetIsOrgAdmin = member.getUser().getRoles().stream()
+     .anyMatch(role -> "ORG_ADMIN".equalsIgnoreCase(role.getCode()));
+   if (targetIsOrgAdmin && !superAdmin) {
+     throw new AccessDeniedException("Only a Super Admin can deactivate an organization administrator membership.");
+   }
+
    member.deactivate();
  }
  @Transactional(readOnly=true) public List<OrganizationMemberResponse> getMembers(UUID organizationId){
@@ -96,36 +109,19 @@ public class OrganizationServiceImpl implements OrganizationService {
      .toList();
  }
 
- @Transactional public List<OrganizationResponse> getCurrentUserOrganizations(){
-  UUID userId=SecurityUtils.getCurrentUserId(); var existing=members.findAllByUserIdAndActiveTrue(userId);
-  if(existing.isEmpty()){
-    User user=users.findById(userId).orElseThrow(()->new ResourceNotFoundException("User not found"));
-    boolean orgAdmin=user.getRoles().stream().anyMatch(role -> "ORG_ADMIN".equals(role.getCode()));
-    if(orgAdmin){
-      List<OrganizationMember> inactiveMemberships = members.findAllByUserIdAndActiveFalse(userId);
-      inactiveMemberships.stream()
-        .filter(m -> m.getOrganization().isActive())
-        .forEach(OrganizationMember::activate);
-      existing=members.findAllByUserIdAndActiveTrue(userId);
-      if(existing.isEmpty()){
-        List<Organization> activeOrganizations = organizations.findAllByActiveTrueOrderByCreatedAtAsc();
-        if(activeOrganizations.size() == 1){
-          Organization organization = activeOrganizations.get(0);
-          members.findByOrganizationIdAndUserId(organization.getId(), userId).ifPresentOrElse(OrganizationMember::activate, () -> members.save(new OrganizationMember(organization, user)));
-          existing=members.findAllByUserIdAndActiveTrue(userId);
-        }
-      }
-      if(existing.isEmpty()){
-        String suffix=user.getId().toString().replace("-","").substring(0,10).toUpperCase(Locale.ROOT),code="ORG-"+suffix;
-        Organization organization=organizations.findByCode(code).orElseGet(() -> organizations.save(new Organization(code,buildOrganizationName(user),"Organization workspace created during organization administrator onboarding.")));
-        members.findByOrganizationIdAndUserId(organization.getId(), userId).ifPresentOrElse(OrganizationMember::activate, () -> members.save(new OrganizationMember(organization, user)));
-        existing=members.findAllByUserIdAndActiveTrue(userId);
-      }
-    }
-  }
-  return existing.stream().map(m->mapper.toResponse(m.getOrganization())).toList();
+ @Transactional
+ public List<OrganizationResponse> getCurrentUserOrganizations(){
+   UUID userId=SecurityUtils.getCurrentUserId();
+   return members.findAllByUserIdAndActiveTrue(userId).stream()
+     .filter(m -> m.getOrganization().isActive() && m.getUser().isEnabled())
+     .map(m->mapper.toResponse(m.getOrganization()))
+     .toList();
  }
  private String buildOrganizationName(User user){String first=user.getFirstName()==null?"":user.getFirstName().trim(),last=user.getLastName()==null?"":user.getLastName().trim(),name=(first+" "+last).trim();return name.isBlank()?"Organization Workspace":name+" Organization";}
+ private boolean hasRole(String code) {
+   var auth = SecurityContextHolder.getContext().getAuthentication();
+   return auth != null && auth.getAuthorities().stream().anyMatch(a -> ("ROLE_" + code).equals(a.getAuthority()));
+ }
  private Organization find(UUID id){return organizations.findById(id).orElseThrow(()->new ResourceNotFoundException("Organization not found"));}
  private String trim(String value){return value==null?null:value.trim();}
  private OrganizationProfileResponse profile(Organization o){return new OrganizationProfileResponse(o.getId(),o.getCode(),o.getName(),o.getDescription(),o.isActive(),o.getSlug(),o.getLegalName(),o.getDisplayName(),o.getOrganizationType(),o.getRegistrationNumber(),o.getEstablishedDate(),o.getPrimaryEmail(),o.getPrimaryPhone(),o.getAlternatePhone(),o.getWebsite(),o.getAddressLine(),o.getCountry(),o.getState(),o.getCity(),o.getDistrict(),o.getPostalCode(),o.getLogoUrl(),o.getCoverImageUrl(),o.getPrimaryColor(),o.getSecondaryColor(),o.getStatus());}
