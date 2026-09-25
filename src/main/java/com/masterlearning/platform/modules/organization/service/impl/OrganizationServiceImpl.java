@@ -133,7 +133,7 @@ public class OrganizationServiceImpl implements OrganizationService {
  @Transactional(readOnly=true)
  public List<OrganizationMemberResponse> getCurrentUserMemberships(){
    UUID userId=SecurityUtils.getCurrentUserId();
-   return members.findAllByUserIdAndActiveTrue(userId).stream()
+   return members.findAllByUserId(userId).stream()
      .map(m->new OrganizationMemberResponse(m.getId(),m.getUser().getId(),m.getUser().getEmail(),m.getUser().getFirstName(),m.getUser().getLastName(),m.isActive(),m.getUser().getRoles().stream().map(r -> r.getCode()).toList()))
      .toList();
  }
