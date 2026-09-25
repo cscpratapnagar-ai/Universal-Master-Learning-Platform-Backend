@@ -104,7 +104,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     if(orgAdmin){
       String suffix=user.getId().toString().replace("-","").substring(0,10).toUpperCase(Locale.ROOT),code="ORG-"+suffix;
       Organization organization=organizations.findByCode(code).orElseGet(() -> organizations.save(new Organization(code,buildOrganizationName(user),"Organization workspace created during organization administrator onboarding.")));
-      if(!members.existsByOrganizationIdAndUserId(organization.getId(),userId))members.save(new OrganizationMember(organization,user));
+      members.findByOrganizationIdAndUserId(organization.getId(), userId).ifPresentOrElse(OrganizationMember::activate, () -> members.save(new OrganizationMember(organization, user)));
       existing=members.findAllByUserIdAndActiveTrue(userId);
     }
   }
