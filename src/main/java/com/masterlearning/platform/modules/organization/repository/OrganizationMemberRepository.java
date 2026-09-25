@@ -13,6 +13,9 @@ public interface OrganizationMemberRepository extends JpaRepository<Organization
 
     boolean existsByOrganizationIdAndUserId(UUID organizationId, UUID userId);
 
+    @Query("select m from OrganizationMember m join fetch m.organization o join fetch m.user u where u.id = :userId order by m.active desc, o.name asc")
+    List<OrganizationMember> findAllByUserId(@Param("userId") UUID userId);
+
     List<OrganizationMember> findAllByUserIdAndActiveTrue(UUID userId);
 
     @Query("select m from OrganizationMember m join fetch m.organization o join fetch m.user u where u.id = :userId and m.active = false")
