@@ -7,6 +7,7 @@ import com.masterlearning.platform.modules.course.repository.*;
 import com.masterlearning.platform.modules.course.security.CourseAuthorizationService;
 import com.masterlearning.platform.modules.course.service.CourseService;
 import com.masterlearning.platform.modules.organization.repository.OrganizationRepository;
+import com.masterlearning.platform.modules.organization.security.OrganizationAuthorizationService;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
@@ -23,6 +24,7 @@ public class CourseServiceImpl implements CourseService {
     private final OrganizationRepository organizations;
     private final UserRepository users;
     private final CourseAuthorizationService authorization;
+    private final OrganizationAuthorizationService organizationAuthorization;
 
     public CourseServiceImpl(
             CourseRepository courses,
@@ -30,13 +32,15 @@ public class CourseServiceImpl implements CourseService {
             LessonRepository lessons,
             OrganizationRepository organizations,
             UserRepository users,
-            CourseAuthorizationService authorization) {
+            CourseAuthorizationService authorization,
+            OrganizationAuthorizationService organizationAuthorization) {
         this.courses=courses;
         this.modules=modules;
         this.lessons=lessons;
         this.organizations=organizations;
         this.users=users;
         this.authorization=authorization;
+        this.organizationAuthorization=organizationAuthorization;
     }
 
     @Override
@@ -47,6 +51,7 @@ public class CourseServiceImpl implements CourseService {
         }
         var org=r.organizationId()==null?null:organizations.findById(r.organizationId())
                 .orElseThrow(()->new EntityNotFoundException("Organization not found"));
+        assertOrganizationAccess(org);
         var user=users.findById(SecurityUtils.getCurrentUserId())
                 .orElseThrow(()->new EntityNotFoundException("Authenticated user not found"));
         return map(courses.save(new Course(r.title().trim(),normalizedSlug,normalizeDescription(r.description()),org,user)));
@@ -65,6 +70,8 @@ public class CourseServiceImpl implements CourseService {
 
         var org=r.organizationId()==null?null:organizations.findById(r.organizationId())
                 .orElseThrow(()->new EntityNotFoundException("Organization not found"));
+
+        assertOrganizationAccess(org);
 
         if(course.getStatus()==CourseStatus.ARCHIVED) {
             throw new IllegalStateException("Archived courses cannot be edited");
@@ -131,6 +138,18 @@ public class CourseServiceImpl implements CourseService {
                 r.sortOrder());
         reorderLesson(lesson, r.sortOrder());
         return mapLessonWithoutLearningState(lesson);
+    }
+
+    private void assertOrganizationAccess(com.masterlearning.platform.modules.organization.entity.Organization organization) {
+        if (organization == null) {
+            throw new org.springframework.security.access.AccessDeniedException("An organization is required for non-super-admin course operations");
+        }
+        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean superAdmin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+        if (!superAdmin && !organizationAuthorization.canAccessOrganization(organization.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("You do not have access to this organization");
+        }
     }
 
     private Course findCourse(UUID id){
