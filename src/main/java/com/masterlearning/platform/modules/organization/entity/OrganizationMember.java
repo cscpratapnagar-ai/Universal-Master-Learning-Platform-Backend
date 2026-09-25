@@ -15,5 +15,5 @@ public class OrganizationMember extends BaseEntity {
     protected OrganizationMember(){}
     public OrganizationMember(Organization organization,User user){this.organization=organization;this.user=user;}
     public UUID getId(){return id;} public Organization getOrganization(){return organization;} public User getUser(){return user;} public boolean isActive(){return active;}
-    public void deactivate(){active=false;}
+    public void deactivate(){active=false;} public void activate(){active=true;}
 }
