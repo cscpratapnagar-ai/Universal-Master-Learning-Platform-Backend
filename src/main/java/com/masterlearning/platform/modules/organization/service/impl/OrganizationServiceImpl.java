@@ -108,6 +108,14 @@ public class OrganizationServiceImpl implements OrganizationService {
         .forEach(OrganizationMember::activate);
       existing=members.findAllByUserIdAndActiveTrue(userId);
       if(existing.isEmpty()){
+        List<Organization> activeOrganizations = organizations.findAllByActiveTrueOrderByCreatedAtAsc();
+        if(activeOrganizations.size() == 1){
+          Organization organization = activeOrganizations.get(0);
+          members.findByOrganizationIdAndUserId(organization.getId(), userId).ifPresentOrElse(OrganizationMember::activate, () -> members.save(new OrganizationMember(organization, user)));
+          existing=members.findAllByUserIdAndActiveTrue(userId);
+        }
+      }
+      if(existing.isEmpty()){
         String suffix=user.getId().toString().replace("-","").substring(0,10).toUpperCase(Locale.ROOT),code="ORG-"+suffix;
         Organization organization=organizations.findByCode(code).orElseGet(() -> organizations.save(new Organization(code,buildOrganizationName(user),"Organization workspace created during organization administrator onboarding.")));
         members.findByOrganizationIdAndUserId(organization.getId(), userId).ifPresentOrElse(OrganizationMember::activate, () -> members.save(new OrganizationMember(organization, user)));
