@@ -19,6 +19,7 @@ public interface OrganizationService {
     void inviteMember(UUID organizationId, InviteOrganizationMemberRequest request);
     List<OrganizationMemberResponse> getMembers(UUID organizationId);
     void deactivateMember(UUID organizationId, UUID memberId);
+    void activateMember(UUID organizationId, UUID memberId);
     List<OrganizationResponse> getCurrentUserOrganizations();
     OrganizationOverviewResponse getOverview(UUID organizationId);
     List<CourseResponse> getCourses(UUID organizationId);
