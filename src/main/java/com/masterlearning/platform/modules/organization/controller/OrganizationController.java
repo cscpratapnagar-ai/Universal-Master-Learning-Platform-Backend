@@ -66,4 +66,11 @@ public class OrganizationController {
  @DeleteMapping("/{id}/members/{memberId}")
  @PreAuthorize("hasRole('SUPER_ADMIN') or (hasRole('ORG_ADMIN') and @organizationAuthorization.canAccessOrganization(#id))")
  public ApiResponse<Void> deactivateMember(@PathVariable UUID id,@PathVariable UUID memberId){service.deactivateMember(id,memberId);return ApiResponse.success("Member deactivated successfully",null);}
+
+ @PutMapping("/{id}/members/{memberId}/activate")
+ @PreAuthorize("hasRole('SUPER_ADMIN')")
+ public ApiResponse<Void> activateMember(@PathVariable UUID id,@PathVariable UUID memberId){
+   service.activateMember(id,memberId);
+   return ApiResponse.success("Organization member access restored successfully",null);
+ }
 }
