@@ -89,9 +89,30 @@ public class OrganizationServiceImpl implements OrganizationService {
 
    member.deactivate();
  }
+
+ public void activateMember(UUID organizationId, UUID memberId){
+   if (!hasRole("SUPER_ADMIN")) {
+     throw new AccessDeniedException("Only a Super Admin can reactivate organization membership.");
+   }
+   Organization organization = find(organizationId);
+   if (!organization.isActive()) {
+     throw new ConflictException("Activate the organization before restoring member access.");
+   }
+
+   OrganizationMember member = members.findById(memberId)
+     .orElseThrow(() -> new ResourceNotFoundException("Organization member not found"));
+   if (!organizationId.equals(member.getOrganization().getId())) {
+     throw new ResourceNotFoundException("Organization member not found");
+   }
+   if (!member.getUser().isEnabled()) {
+     throw new ConflictException("The user account is disabled. Reactivate the user account first.");
+   }
+
+   member.activate();
+ }
  @Transactional(readOnly=true) public List<OrganizationMemberResponse> getMembers(UUID organizationId){
    find(organizationId);
-   return members.findAllByOrganizationIdAndActiveTrue(organizationId).stream().map(m->new OrganizationMemberResponse(m.getId(),m.getUser().getId(),m.getUser().getEmail(),m.getUser().getFirstName(),m.getUser().getLastName(),m.isActive())).toList();
+   return members.findAllByOrganizationId(organizationId).stream().map(m->new OrganizationMemberResponse(m.getId(),m.getUser().getId(),m.getUser().getEmail(),m.getUser().getFirstName(),m.getUser().getLastName(),m.isActive())).toList();
  }
 
  @Transactional(readOnly=true) public OrganizationOverviewResponse getOverview(UUID organizationId){
