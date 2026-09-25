@@ -102,10 +102,17 @@ public class OrganizationServiceImpl implements OrganizationService {
     User user=users.findById(userId).orElseThrow(()->new ResourceNotFoundException("User not found"));
     boolean orgAdmin=user.getRoles().stream().anyMatch(role -> "ORG_ADMIN".equals(role.getCode()));
     if(orgAdmin){
-      String suffix=user.getId().toString().replace("-","").substring(0,10).toUpperCase(Locale.ROOT),code="ORG-"+suffix;
-      Organization organization=organizations.findByCode(code).orElseGet(() -> organizations.save(new Organization(code,buildOrganizationName(user),"Organization workspace created during organization administrator onboarding.")));
-      members.findByOrganizationIdAndUserId(organization.getId(), userId).ifPresentOrElse(OrganizationMember::activate, () -> members.save(new OrganizationMember(organization, user)));
+      List<OrganizationMember> inactiveMemberships = members.findAllByUserIdAndActiveFalse(userId);
+      inactiveMemberships.stream()
+        .filter(m -> m.getOrganization().isActive())
+        .forEach(OrganizationMember::activate);
       existing=members.findAllByUserIdAndActiveTrue(userId);
+      if(existing.isEmpty()){
+        String suffix=user.getId().toString().replace("-","").substring(0,10).toUpperCase(Locale.ROOT),code="ORG-"+suffix;
+        Organization organization=organizations.findByCode(code).orElseGet(() -> organizations.save(new Organization(code,buildOrganizationName(user),"Organization workspace created during organization administrator onboarding.")));
+        members.findByOrganizationIdAndUserId(organization.getId(), userId).ifPresentOrElse(OrganizationMember::activate, () -> members.save(new OrganizationMember(organization, user)));
+        existing=members.findAllByUserIdAndActiveTrue(userId);
+      }
     }
   }
   return existing.stream().map(m->mapper.toResponse(m.getOrganization())).toList();
