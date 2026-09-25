@@ -112,7 +112,7 @@ public class OrganizationServiceImpl implements OrganizationService {
  }
  @Transactional(readOnly=true) public List<OrganizationMemberResponse> getMembers(UUID organizationId){
    find(organizationId);
-   return members.findAllByOrganizationId(organizationId).stream().map(m->new OrganizationMemberResponse(m.getId(),m.getUser().getId(),m.getUser().getEmail(),m.getUser().getFirstName(),m.getUser().getLastName(),m.isActive())).toList();
+   return members.findAllByOrganizationId(organizationId).stream().map(m->new OrganizationMemberResponse(m.getId(),m.getUser().getId(),m.getUser().getEmail(),m.getUser().getFirstName(),m.getUser().getLastName(),m.isActive(),m.getUser().getRoles().stream().map(r -> r.getCode()).toList())).toList();
  }
 
  @Transactional(readOnly=true) public OrganizationOverviewResponse getOverview(UUID organizationId){
