@@ -23,6 +23,7 @@ public class OrganizationController {
  @GetMapping @PreAuthorize("hasRole('SUPER_ADMIN')")
  public ApiResponse<List<OrganizationResponse>> getAll(){return ApiResponse.success("Organizations retrieved successfully",service.getAll());}
  @GetMapping("/me") public ApiResponse<List<OrganizationResponse>> mine(){return ApiResponse.success("Organizations retrieved successfully",service.getCurrentUserOrganizations());}
+ @GetMapping("/me/memberships") public ApiResponse<List<OrganizationMemberResponse>> myMemberships(){return ApiResponse.success("Organization memberships retrieved successfully",service.getCurrentUserMemberships());}
  @GetMapping("/{id}") @PreAuthorize("hasRole('SUPER_ADMIN')")
  public ApiResponse<OrganizationResponse> get(@PathVariable UUID id){return ApiResponse.success("Organization retrieved successfully",service.getById(id));}
  @PutMapping("/{id}") @PreAuthorize("hasRole('SUPER_ADMIN')")
