@@ -18,8 +18,8 @@ public interface OrganizationMemberRepository extends JpaRepository<Organization
     @Query("select m from OrganizationMember m join fetch m.organization o join fetch m.user u where u.id = :userId and m.active = false")
     List<OrganizationMember> findAllByUserIdAndActiveFalse(@Param("userId") UUID userId);
 
-    @Query("select m from OrganizationMember m join fetch m.organization o join fetch m.user u where o.id = :organizationId and m.active = true")
-    List<OrganizationMember> findAllByOrganizationIdAndActiveTrue(@Param("organizationId") UUID organizationId);
+    @Query("select m from OrganizationMember m join fetch m.organization o join fetch m.user u where o.id = :organizationId order by m.active desc, m.createdAt asc")
+    List<OrganizationMember> findAllByOrganizationId(@Param("organizationId") UUID organizationId);
 
     @Query("select m from OrganizationMember m join fetch m.organization o where o.id = :organizationId and m.user.id = :userId")
     Optional<OrganizationMember> findByOrganizationIdAndUserId(@Param("organizationId") UUID organizationId, @Param("userId") UUID userId);
