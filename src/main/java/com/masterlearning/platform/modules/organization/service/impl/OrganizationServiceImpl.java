@@ -15,6 +15,8 @@ import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.*;
 
@@ -45,7 +47,14 @@ public class OrganizationServiceImpl implements OrganizationService {
    return profile(o);
  }
  @Transactional(readOnly=true) public OrganizationProfileResponse getProfile(UUID id){return profile(find(id));}
- public OrganizationProfileResponse updateStatus(UUID id,UpdateOrganizationStatusRequest r){Organization o=find(id);o.changeStatus(r.status());return profile(o);}
+ public OrganizationProfileResponse updateStatus(UUID id,UpdateOrganizationStatusRequest r){
+  Organization o=find(id);
+  var auth=SecurityContextHolder.getContext().getAuthentication();
+  boolean superAdmin=auth!=null && auth.getAuthorities().stream().anyMatch(a -> "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+  if(!superAdmin && r.status()!=OrganizationStatus.ACTIVE) throw new AccessDeniedException("Only Super Admin can deactivate, suspend, or archive an organization.");
+  o.changeStatus(r.status());
+  return profile(o);
+ }
  @Transactional(readOnly=true) public OrganizationResponse getById(UUID id){return mapper.toResponse(find(id));}
  @Transactional(readOnly=true) public List<OrganizationResponse> getAll(){return organizations.findAll().stream().map(mapper::toResponse).toList();}
  public void deactivate(UUID id){find(id).deactivate();}
