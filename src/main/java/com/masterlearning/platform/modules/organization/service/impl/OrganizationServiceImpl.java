@@ -82,9 +82,7 @@ public class OrganizationServiceImpl implements OrganizationService {
  @Transactional(readOnly=true)
  public List<CourseResponse> getCourses(UUID organizationId){
    find(organizationId);
-   return courses.findByOrganizationIdOrderByTitleAsc(organizationId).stream()
-     .map(c->new CourseResponse(c.getId(),c.getTitle(),c.getSlug(),c.getDescription(),c.getStatus().name(),organizationId))
-     .toList();
+   return courses.findCourseResponsesByOrganizationId(organizationId);
  }
 
  @Transactional public List<OrganizationResponse> getCurrentUserOrganizations(){
