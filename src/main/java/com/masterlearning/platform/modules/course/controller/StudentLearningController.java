@@ -250,6 +250,7 @@ public class StudentLearningController {
                 lesson.getContentType(),
                 locked ? null : lesson.getContent(),
                 lesson.getSortOrder(),
+                lesson.getCompletionMode(),
                 done,
                 locked,
                 access.unmetPrerequisiteLessonIds()
