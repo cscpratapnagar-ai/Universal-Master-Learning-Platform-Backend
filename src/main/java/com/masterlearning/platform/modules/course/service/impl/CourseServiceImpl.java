@@ -230,6 +230,7 @@ public class CourseServiceImpl implements CourseService {
                 lesson.getContentType(),
                 lesson.getContent(),
                 lesson.getSortOrder(),
+                lesson.getCompletionMode(),
                 false,
                 false,
                 List.of());
