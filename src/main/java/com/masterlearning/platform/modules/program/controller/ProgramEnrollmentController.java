@@ -1,0 +1,63 @@
+package com.masterlearning.platform.modules.program.controller;
+
+import com.masterlearning.platform.common.api.ApiResponse;
+import com.masterlearning.platform.modules.organization.repository.OrganizationMemberRepository;
+import com.masterlearning.platform.modules.organization.security.OrganizationAuthorizationService;
+import com.masterlearning.platform.modules.program.entity.ProgramEnrollment;
+import com.masterlearning.platform.modules.program.entity.ProgramStatus;
+import com.masterlearning.platform.modules.program.repository.ProgramEnrollmentRepository;
+import com.masterlearning.platform.modules.program.repository.ProgramRepository;
+import com.masterlearning.platform.modules.user.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.constraints.NotNull;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
+import java.util.*;
+
+@RestController
+@RequestMapping("/api/v1/program-enrollments")
+public class ProgramEnrollmentController {
+ private final ProgramEnrollmentRepository enrollments; private final ProgramRepository programs; private final UserRepository users;
+ private final OrganizationMemberRepository members; private final OrganizationAuthorizationService authorization;
+ public ProgramEnrollmentController(ProgramEnrollmentRepository e,ProgramRepository p,UserRepository u,OrganizationMemberRepository m,OrganizationAuthorizationService a){enrollments=e;programs=p;users=u;members=m;authorization=a;}
+
+ @PostMapping("/{programId}/users/{userId}") @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN')")
+ @Transactional public ApiResponse<Map<String,Object>> enroll(@PathVariable UUID programId,@PathVariable UUID userId){
+   var p=programs.findWithOrganizationById(programId).orElseThrow(()->new EntityNotFoundException("Program not found"));
+   assertManageable(p);
+   if(p.getStatus()!=ProgramStatus.PUBLISHED && p.getStatus()!=ProgramStatus.ACTIVE) throw new IllegalStateException("Only published or active programs can enroll learners");
+   if(p.getOrganization()==null || !members.findByOrganizationIdAndUserId(p.getOrganization().getId(),userId).map(x->x.isActive()).orElse(false))
+      throw new AccessDeniedException("Learner must be an active member of the program organization");
+   var existing=enrollments.findByProgramIdAndUserId(programId,userId);
+   var e=existing.orElseGet(()->enrollments.save(new ProgramEnrollment(p,users.findById(userId).orElseThrow(()->new EntityNotFoundException("User not found")))));
+   return ApiResponse.success("Learner enrolled in program",data(e));
+ }
+
+ @GetMapping("/{programId}") @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN')")
+ @Transactional(readOnly=true) public ApiResponse<List<Map<String,Object>>> list(@PathVariable UUID programId){
+   var p=programs.findWithOrganizationById(programId).orElseThrow(()->new EntityNotFoundException("Program not found")); assertManageable(p);
+   return ApiResponse.success("Program learners retrieved",enrollments.findByProgramIdOrderByCreatedAtAsc(programId).stream().map(this::data).toList());
+ }
+
+ @GetMapping("/mine") @PreAuthorize("isAuthenticated()") @Transactional(readOnly=true)
+ public ApiResponse<List<Map<String,Object>>> mine(){
+   UUID uid=com.masterlearning.platform.security.util.SecurityUtils.getCurrentUserId();
+   return ApiResponse.success("My program enrollments retrieved",enrollments.findByUserIdOrderByCreatedAtDesc(uid).stream().map(this::data).toList());
+ }
+
+ @PutMapping("/{enrollmentId}/cancel") @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN')")
+ @Transactional public ApiResponse<Map<String,Object>> cancel(@PathVariable UUID enrollmentId){
+   var e=enrollments.findById(enrollmentId).orElseThrow(()->new EntityNotFoundException("Program enrollment not found")); assertManageable(e.getProgram()); e.cancel();
+   return ApiResponse.success("Program enrollment cancelled",data(e));
+ }
+
+ private void assertManageable(com.masterlearning.platform.modules.program.entity.Program p){
+   UUID oid=p.getOrganization()==null?null:p.getOrganization().getId();
+   boolean superAdmin=org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication()!=null &&
+      org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream().anyMatch(a->"ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+   if(!superAdmin && (oid==null || !authorization.canAccessOrganization(oid))) throw new AccessDeniedException("You do not have access to this organization");
+ }
+ private Map<String,Object> data(ProgramEnrollment e){Map<String,Object> x=new LinkedHashMap<>();x.put("id",e.getId());x.put("programId",e.getProgram().getId());x.put("programTitle",e.getProgram().getTitle());x.put("organizationId",e.getProgram().getOrganization()==null?null:e.getProgram().getOrganization().getId());x.put("userId",e.getUser().getId());x.put("status",e.getStatus());x.put("progressPercent",e.getProgressPercent());x.put("completedAt",e.getCompletedAt());return x;}
+}
