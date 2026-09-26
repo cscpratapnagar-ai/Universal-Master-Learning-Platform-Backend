@@ -26,7 +26,7 @@ public class CourseController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN','INSTRUCTOR','TEACHER')")
     public ApiResponse<CourseResponse> create(@Valid @RequestBody CreateCourseRequest r){
         return ApiResponse.success("Course created successfully",service.create(r));
     }
