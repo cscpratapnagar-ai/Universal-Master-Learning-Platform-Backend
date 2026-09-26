@@ -60,6 +60,15 @@ public class ProgramEnrollmentController {
    syncProgress(e,uid); return ApiResponse.success("Program learning progress retrieved",data(e));
  }
 
+ @GetMapping("/mine/{programId}/workspace") @PreAuthorize("isAuthenticated()") @Transactional(readOnly=true)
+ public ApiResponse<Map<String,Object>> mineWorkspace(@PathVariable UUID programId){
+   UUID uid=com.masterlearning.platform.security.util.SecurityUtils.getCurrentUserId();
+   var e=enrollments.findByProgramIdAndUserId(programId,uid).orElseThrow(()->new AccessDeniedException("You are not enrolled in this program"));
+   var courses=pathCourses.findByLearningPathProgramIdOrderByLearningPathTitleAscSortOrderAsc(programId).stream()
+      .map(x->{Map<String,Object> m=new LinkedHashMap<>();m.put("courseId",x.getCourse().getId());m.put("title",x.getCourse().getTitle());m.put("status",x.getCourse().getStatus());m.put("sortOrder",x.getSortOrder());m.put("enrolled",courseEnrollments.findByCourseIdAndUserId(x.getCourse().getId(),uid).isPresent());m.put("progressPercent",courseEnrollments.findByCourseIdAndUserId(x.getCourse().getId(),uid).map(z->z.getProgressPercent()).orElse(0));return m;}).toList();
+   Map<String,Object> data=data(e); data.put("courses",courses); return ApiResponse.success("Project workspace retrieved",data);
+ }
+
  @PutMapping("/{enrollmentId}/cancel") @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN')")
  @Transactional public ApiResponse<Map<String,Object>> cancel(@PathVariable UUID enrollmentId){
    var e=enrollments.findById(enrollmentId).orElseThrow(()->new EntityNotFoundException("Program enrollment not found")); assertManageable(e.getProgram()); e.cancel();
