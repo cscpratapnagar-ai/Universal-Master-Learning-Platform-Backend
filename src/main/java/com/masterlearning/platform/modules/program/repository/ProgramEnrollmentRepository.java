@@ -9,6 +9,5 @@ public interface ProgramEnrollmentRepository extends JpaRepository<ProgramEnroll
  List<ProgramEnrollment> findByUserIdOrderByCreatedAtDesc(UUID userId);
  @EntityGraph(attributePaths={"program","program.organization","user"})
  Optional<ProgramEnrollment> findByProgramIdAndUserId(UUID programId,UUID userId);
- long countByProgramId();
  long countByProgramIdAndStatus(UUID programId,String status);
 }
