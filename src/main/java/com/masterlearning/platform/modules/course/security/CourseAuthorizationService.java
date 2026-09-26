@@ -41,7 +41,8 @@ public class CourseAuthorizationService {
 
         boolean elevated = authentication.getAuthorities().stream().anyMatch(authority ->
                 "ROLE_SUPER_ADMIN".equals(authority.getAuthority())
-                        || "ROLE_ADMIN".equals(authority.getAuthority()));
+                        || "ROLE_ADMIN".equals(authority.getAuthority())
+                        || "ROLE_ORG_ADMIN".equals(authority.getAuthority()));
         if (elevated) {
             return hasOrganizationAccess(course);
         }
