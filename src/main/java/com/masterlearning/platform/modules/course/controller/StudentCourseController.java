@@ -2,6 +2,7 @@ package com.masterlearning.platform.modules.course.controller;
 
 import com.masterlearning.platform.common.api.ApiResponse;
 import com.masterlearning.platform.modules.course.dto.response.CourseResponse;
+import com.masterlearning.platform.modules.course.entity.CourseStatus;
 import com.masterlearning.platform.modules.course.repository.CourseRepository;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import com.masterlearning.platform.security.util.SecurityUtils;
@@ -46,6 +47,30 @@ public class StudentCourseController {
         }).toList();
 
         return ApiResponse.success("Student courses retrieved", data);
+    }
+
+    @GetMapping("/catalog")
+    @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
+    public ApiResponse<List<Map<String, Object>>> catalog() {
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        var enrolledCourseIds = enrollments.findByUserId(currentUserId).stream()
+                .map(e -> e.getCourse().getId())
+                .collect(java.util.stream.Collectors.toSet());
+
+        var data = courses.findByStatus(CourseStatus.PUBLISHED).stream().map(c -> {
+            Map<String, Object> x = new LinkedHashMap<>();
+            x.put("courseId", c.getId());
+            x.put("title", c.getTitle());
+            x.put("slug", c.getSlug());
+            x.put("description", c.getDescription());
+            x.put("status", c.getStatus().name());
+            x.put("organizationId", c.getOrganization() == null ? null : c.getOrganization().getId());
+            x.put("enrolled", enrolledCourseIds.contains(c.getId()));
+            return x;
+        }).toList();
+
+        return ApiResponse.success("Published course catalog retrieved", data);
     }
 
     @GetMapping("/{courseId}")
