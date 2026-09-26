@@ -7,6 +7,7 @@ import com.masterlearning.platform.modules.program.entity.ProgramEnrollment;
 import com.masterlearning.platform.modules.program.entity.ProgramStatus;
 import com.masterlearning.platform.modules.program.repository.ProgramEnrollmentRepository;
 import com.masterlearning.platform.modules.program.repository.ProgramRepository;
+import com.masterlearning.platform.modules.program.repository.ProgramMilestoneRepository;
 import com.masterlearning.platform.modules.program.repository.LearningPathCourseRepository;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import com.masterlearning.platform.modules.course.repository.CourseRepository;
