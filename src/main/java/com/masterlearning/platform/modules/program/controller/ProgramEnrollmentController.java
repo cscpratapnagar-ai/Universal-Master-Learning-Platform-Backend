@@ -9,6 +9,8 @@ import com.masterlearning.platform.modules.program.repository.ProgramEnrollmentR
 import com.masterlearning.platform.modules.program.repository.ProgramRepository;
 import com.masterlearning.platform.modules.program.repository.LearningPathCourseRepository;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
+import com.masterlearning.platform.modules.course.repository.CourseRepository;
+import com.masterlearning.platform.modules.course.entity.CourseStatus;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.constraints.NotNull;
@@ -22,8 +24,8 @@ import java.util.*;
 @RequestMapping("/api/v1/program-enrollments")
 public class ProgramEnrollmentController {
  private final ProgramEnrollmentRepository enrollments; private final ProgramRepository programs; private final UserRepository users;
- private final OrganizationMemberRepository members; private final OrganizationAuthorizationService authorization; private final LearningPathCourseRepository pathCourses; private final EnrollmentRepository courseEnrollments;
- public ProgramEnrollmentController(ProgramEnrollmentRepository e,ProgramRepository p,UserRepository u,OrganizationMemberRepository m,OrganizationAuthorizationService a,LearningPathCourseRepository pc,EnrollmentRepository ce){enrollments=e;programs=p;users=u;members=m;authorization=a;pathCourses=pc;courseEnrollments=ce;}
+ private final OrganizationMemberRepository members; private final OrganizationAuthorizationService authorization; private final LearningPathCourseRepository pathCourses; private final EnrollmentRepository courseEnrollments; private final CourseRepository courses;
+ public ProgramEnrollmentController(ProgramEnrollmentRepository e,ProgramRepository p,UserRepository u,OrganizationMemberRepository m,OrganizationAuthorizationService a,LearningPathCourseRepository pc,EnrollmentRepository ce,CourseRepository cr){enrollments=e;programs=p;users=u;members=m;authorization=a;pathCourses=pc;courseEnrollments=ce;courses=cr;}
 
  @PostMapping("/{programId}/users/{userId}") @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN')")
  @Transactional public ApiResponse<Map<String,Object>> enroll(@PathVariable UUID programId,@PathVariable UUID userId){
@@ -34,6 +36,7 @@ public class ProgramEnrollmentController {
       throw new AccessDeniedException("Learner must be an active member of the program organization");
    var existing=enrollments.findByProgramIdAndUserId(programId,userId);
    var e=existing.orElseGet(()->enrollments.save(new ProgramEnrollment(p,users.findById(userId).orElseThrow(()->new EntityNotFoundException("User not found")))));
+   autoEnrollPublishedCourses(p.getId(),userId);
    return ApiResponse.success("Learner enrolled in program",data(e));
  }
 
@@ -63,6 +66,12 @@ public class ProgramEnrollmentController {
    return ApiResponse.success("Program enrollment cancelled",data(e));
  }
 
+ private void autoEnrollPublishedCourses(UUID programId, UUID userId){
+   var user=users.findById(userId).orElseThrow(()->new EntityNotFoundException("User not found"));
+   pathCourses.findByLearningPathProgramIdOrderByLearningPathTitleAscSortOrderAsc(programId).stream()
+      .map(x->x.getCourse()).filter(c->c.getStatus()==CourseStatus.PUBLISHED).distinct()
+      .forEach(c-> { if(!courseEnrollments.existsByCourseIdAndUserId(c.getId(),userId)) courseEnrollments.save(new com.masterlearning.platform.modules.course.entity.Enrollment(c,user)); });
+ }
  private void syncProgress(ProgramEnrollment e, UUID userId){
    var courseIds=pathCourses.findByLearningPathProgramIdOrderByLearningPathTitleAscSortOrderAsc(e.getProgram().getId()).stream().map(x->x.getCourse().getId()).distinct().toList();
    if(courseIds.isEmpty()){e.updateProgress(0);return;}
