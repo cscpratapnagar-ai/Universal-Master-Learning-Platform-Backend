@@ -6,6 +6,9 @@ import com.masterlearning.platform.modules.course.repository.CourseModuleReposit
 import com.masterlearning.platform.modules.course.repository.CourseRepository;
 import com.masterlearning.platform.modules.course.repository.LessonPrerequisiteRepository;
 import com.masterlearning.platform.modules.course.repository.LessonRepository;
+import com.masterlearning.platform.modules.organization.security.OrganizationAuthorizationService;
+import org.springframework.security.core.context.SecurityContextHolder;
+import java.util.UUID;
 import com.masterlearning.platform.modules.course.security.CourseAuthorizationService;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,6 +27,7 @@ public class AdminLearningCatalogController {
     private final CourseRepository courses;
     private final CourseModuleRepository modules;
     private final LessonRepository lessons;
+    private final OrganizationAuthorizationService organizationAuthorization;
     private final LessonPrerequisiteRepository prerequisites;
     private final CourseAuthorizationService authorization;
 
