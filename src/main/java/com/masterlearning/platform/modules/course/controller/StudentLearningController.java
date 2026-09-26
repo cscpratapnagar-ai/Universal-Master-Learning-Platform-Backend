@@ -8,6 +8,10 @@ import com.masterlearning.platform.modules.course.entity.Enrollment;
 import com.masterlearning.platform.modules.course.entity.Lesson;
 import com.masterlearning.platform.modules.course.entity.LessonProgress;
 import com.masterlearning.platform.modules.course.repository.*;
+import com.masterlearning.platform.modules.program.entity.ProgramActivity;
+import com.masterlearning.platform.modules.program.repository.LearningPathCourseRepository;
+import com.masterlearning.platform.modules.program.repository.ProgramActivityRepository;
+import com.masterlearning.platform.modules.program.repository.ProgramEnrollmentRepository;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
@@ -31,12 +35,18 @@ public class StudentLearningController {
     private final AssessmentRepository assessments;
     private final AssessmentAttemptRepository assessmentAttempts;
     private final LessonPrerequisiteRepository prerequisites;
+    private final LearningPathCourseRepository programCourses;
+    private final ProgramActivityRepository programActivities;
+    private final ProgramEnrollmentRepository programEnrollments;
 
     public StudentLearningController(EnrollmentRepository e, CourseModuleRepository m,
                                      LessonRepository l, LessonProgressRepository p,
                                      AssessmentRepository assessments,
                                      AssessmentAttemptRepository assessmentAttempts,
-                                     LessonPrerequisiteRepository prerequisites) {
+                                     LessonPrerequisiteRepository prerequisites,
+                                     LearningPathCourseRepository programCourses,
+                                     ProgramActivityRepository programActivities,
+                                     ProgramEnrollmentRepository programEnrollments) {
         enrollments = e;
         modules = m;
         lessons = l;
@@ -44,6 +54,9 @@ public class StudentLearningController {
         this.assessments = assessments;
         this.assessmentAttempts = assessmentAttempts;
         this.prerequisites = prerequisites;
+        this.programCourses = programCourses;
+        this.programActivities = programActivities;
+        this.programEnrollments = programEnrollments;
     }
 
     @GetMapping("/enrollments/{enrollmentId}")
@@ -301,6 +314,21 @@ public class StudentLearningController {
         return lesson;
     }
 
+    private void recordProgramExecution(Enrollment enrollment, Lesson lesson, boolean wasCompleted) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        programCourses.findByCourseId(enrollment.getCourse().getId()).stream()
+                .map(link -> link.getLearningPath().getProgram())
+                .distinct()
+                .filter(program -> programEnrollments.findByProgramIdAndUserId(program.getId(), userId).isPresent())
+                .forEach(program -> {
+                    String action = enrollment.isCompleted() && !wasCompleted ? "COURSE_COMPLETED" : "LESSON_COMPLETED";
+                    String details = enrollment.isCompleted() && !wasCompleted
+                            ? "Course " + enrollment.getCourse().getTitle() + " completed by learner " + userId
+                            : "Lesson " + lesson.getTitle() + " completed · course progress " + enrollment.getProgressPercent() + "%";
+                    programActivities.save(new ProgramActivity(program, action, details, String.valueOf(userId)));
+                });
+    }
+
     private ApiResponse<EnrollmentResponse> markLessonCompleted(
             Enrollment enrollment,
             Lesson lesson,
@@ -318,8 +346,10 @@ public class StudentLearningController {
                 .sum();
 
         int percent = total == 0 ? 0 : (int) Math.round(completed * 100.0 / total);
+        boolean wasCompleted = enrollment.isCompleted();
         enrollment.updateProgress(percent);
         enrollments.save(enrollment);
+        recordProgramExecution(enrollment, lesson, wasCompleted);
 
         return ApiResponse.success(
                 "Lesson completed and progress updated",
