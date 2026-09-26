@@ -9,6 +9,7 @@ public record LessonResponse(
         String contentType,
         String content,
         int sortOrder,
+        String completionMode,
         boolean completed,
         boolean locked,
         List<UUID> unmetPrerequisiteLessonIds
