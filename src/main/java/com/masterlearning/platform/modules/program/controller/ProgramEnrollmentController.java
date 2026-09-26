@@ -9,6 +9,7 @@ import com.masterlearning.platform.modules.program.repository.ProgramEnrollmentR
 import com.masterlearning.platform.modules.program.repository.ProgramRepository;
 import com.masterlearning.platform.modules.program.repository.ProgramMilestoneRepository;
 import com.masterlearning.platform.modules.program.repository.LearningPathCourseRepository;
+import com.masterlearning.platform.modules.program.repository.ProgramActivityRepository;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import com.masterlearning.platform.modules.course.repository.CourseRepository;
 import com.masterlearning.platform.modules.course.entity.CourseStatus;
@@ -25,8 +26,8 @@ import java.util.*;
 @RequestMapping("/api/v1/program-enrollments")
 public class ProgramEnrollmentController {
  private final ProgramEnrollmentRepository enrollments; private final ProgramRepository programs; private final UserRepository users;
- private final OrganizationMemberRepository members; private final OrganizationAuthorizationService authorization; private final LearningPathCourseRepository pathCourses; private final EnrollmentRepository courseEnrollments; private final CourseRepository courses; private final ProgramMilestoneRepository milestoneRepository;
- public ProgramEnrollmentController(ProgramEnrollmentRepository e,ProgramRepository p,UserRepository u,OrganizationMemberRepository m,OrganizationAuthorizationService a,LearningPathCourseRepository pc,EnrollmentRepository ce,CourseRepository cr,ProgramMilestoneRepository mr){enrollments=e;programs=p;users=u;members=m;authorization=a;pathCourses=pc;courseEnrollments=ce;courses=cr;milestoneRepository=mr;}
+ private final OrganizationMemberRepository members; private final OrganizationAuthorizationService authorization; private final LearningPathCourseRepository pathCourses; private final EnrollmentRepository courseEnrollments; private final CourseRepository courses; private final ProgramMilestoneRepository milestoneRepository; private final ProgramActivityRepository activities;
+ public ProgramEnrollmentController(ProgramEnrollmentRepository e,ProgramRepository p,UserRepository u,OrganizationMemberRepository m,OrganizationAuthorizationService a,LearningPathCourseRepository pc,EnrollmentRepository ce,CourseRepository cr,ProgramMilestoneRepository mr,ProgramActivityRepository pa){enrollments=e;programs=p;users=u;members=m;authorization=a;pathCourses=pc;courseEnrollments=ce;courses=cr;milestoneRepository=mr;activities=pa;}
 
  @PostMapping("/{programId}/users/{userId}") @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN')")
  @Transactional public ApiResponse<Map<String,Object>> enroll(@PathVariable UUID programId,@PathVariable UUID userId){
@@ -38,6 +39,7 @@ public class ProgramEnrollmentController {
    var existing=enrollments.findByProgramIdAndUserId(programId,userId);
    var e=existing.orElseGet(()->enrollments.save(new ProgramEnrollment(p,users.findById(userId).orElseThrow(()->new EntityNotFoundException("User not found")))));
    autoEnrollPublishedCourses(p.getId(),userId);
+   activities.save(new com.masterlearning.platform.modules.program.entity.ProgramActivity(p,"LEARNER_ENROLLED","Learner "+userId+" enrolled in the project",String.valueOf(userId)));
    return ApiResponse.success("Learner enrolled in program",data(e));
  }
 
@@ -61,7 +63,7 @@ public class ProgramEnrollmentController {
    syncProgress(e,uid); return ApiResponse.success("Program learning progress retrieved",data(e));
  }
 
- @GetMapping("/mine/{programId}/execution") @PreAuthorize("isAuthenticated()") @Transactional(readOnly=true)
+ @GetMapping("/mine/{programId}/execution") @PreAuthorize("isAuthenticated()") @Transactional
  public ApiResponse<Map<String,Object>> mineExecution(@PathVariable UUID programId){
    UUID uid=com.masterlearning.platform.security.util.SecurityUtils.getCurrentUserId();
    var e=enrollments.findByProgramIdAndUserId(programId,uid).orElseThrow(()->new AccessDeniedException("You are not enrolled in this program"));
@@ -69,7 +71,7 @@ public class ProgramEnrollmentController {
    var milestoneRepo=milestoneRepository;
    var today=java.time.LocalDate.now();
    var ms=milestoneRepo.findByProgramIdOrderBySortOrderAscDueDateAsc(programId).stream().map(m->{Map<String,Object> x=new LinkedHashMap<>();x.put("id",m.getId());x.put("title",m.getTitle());x.put("description",m.getDescription());x.put("dueDate",m.getDueDate());x.put("sortOrder",m.getSortOrder());x.put("status",m.getStatus().name());x.put("overdue",m.getDueDate()!=null&&m.getDueDate().isBefore(today)&&m.getStatus()!=ProgramMilestoneStatus.COMPLETED&&m.getStatus()!=ProgramMilestoneStatus.CANCELLED);return x;}).toList();
-   Map<String,Object> data=data(e); data.put("milestones",ms); return ApiResponse.success("Project execution retrieved",data);
+   long completedMilestones=ms.stream().filter(x->"COMPLETED".equals(x.get("status"))).count(); long overdueMilestones=ms.stream().filter(x->Boolean.TRUE.equals(x.get("overdue"))).count(); Map<String,Object> data=data(e); data.put("milestones",ms); data.put("milestoneCount",ms.size()); data.put("completedMilestoneCount",completedMilestones); data.put("overdueMilestoneCount",overdueMilestones); data.put("nextMilestone",ms.stream().filter(x->!"COMPLETED".equals(x.get("status"))&&!"CANCELLED".equals(x.get("status"))).findFirst().orElse(null)); return ApiResponse.success("Project execution retrieved",data);
  }
 
  @GetMapping("/mine/{programId}/workspace") @PreAuthorize("isAuthenticated()") @Transactional(readOnly=true)
@@ -105,5 +107,5 @@ public class ProgramEnrollmentController {
       org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream().anyMatch(a->"ROLE_SUPER_ADMIN".equals(a.getAuthority()));
    if(!superAdmin && (oid==null || !authorization.canAccessOrganization(oid))) throw new AccessDeniedException("You do not have access to this organization");
  }
- private Map<String,Object> data(ProgramEnrollment e){Map<String,Object> x=new LinkedHashMap<>();x.put("id",e.getId());x.put("programId",e.getProgram().getId());x.put("programTitle",e.getProgram().getTitle());x.put("organizationId",e.getProgram().getOrganization()==null?null:e.getProgram().getOrganization().getId());x.put("userId",e.getUser().getId());x.put("status",e.getStatus());x.put("progressPercent",e.getProgressPercent());x.put("completedAt",e.getCompletedAt());return x;}
+ private Map<String,Object> data(ProgramEnrollment e){Map<String,Object> x=new LinkedHashMap<>();x.put("id",e.getId());x.put("programId",e.getProgram().getId());x.put("programTitle",e.getProgram().getTitle());x.put("organizationId",e.getProgram().getOrganization()==null?null:e.getProgram().getOrganization().getId());x.put("userId",e.getUser().getId());x.put("userEmail",e.getUser().getEmail());x.put("userFirstName",e.getUser().getFirstName());x.put("userLastName",e.getUser().getLastName());x.put("status",e.getStatus());x.put("progressPercent",e.getProgressPercent());x.put("completedAt",e.getCompletedAt());return x;}
 }
