@@ -54,7 +54,7 @@ public class LearningController {
     }
 
     @PostMapping("/modules/{moduleId}/lessons")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN','INSTRUCTOR','TEACHER')")
     public ApiResponse<Map<String, Object>> addLesson(@PathVariable UUID moduleId,
                                                        @Valid @RequestBody CreateLessonRequest r) {
         var m = modules.findById(moduleId)
@@ -230,6 +230,11 @@ public class LearningController {
 
         var c = courses.findById(courseId)
                 .orElseThrow(() -> new EntityNotFoundException("Course not found"));
+
+        if (c.getStatus() != CourseStatus.PUBLISHED) {
+            throw new IllegalStateException("Only published courses can be enrolled");
+        }
+
         var u = users.findById(currentUserId)
                 .orElseThrow(() -> new EntityNotFoundException("Authenticated user not found"));
 
