@@ -5,6 +5,7 @@ import com.masterlearning.platform.modules.organization.repository.OrganizationM
 import com.masterlearning.platform.modules.organization.security.OrganizationAuthorizationService;
 import com.masterlearning.platform.modules.program.entity.ProgramEnrollment;
 import com.masterlearning.platform.modules.program.entity.ProgramStatus;
+import com.masterlearning.platform.modules.program.entity.ProgramMilestoneStatus;
 import com.masterlearning.platform.modules.program.repository.ProgramEnrollmentRepository;
 import com.masterlearning.platform.modules.program.repository.ProgramRepository;
 import com.masterlearning.platform.modules.program.repository.ProgramMilestoneRepository;
