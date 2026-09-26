@@ -74,12 +74,19 @@ public class ProgramEnrollmentController {
    long completedMilestones=ms.stream().filter(x->"COMPLETED".equals(x.get("status"))).count(); long overdueMilestones=ms.stream().filter(x->Boolean.TRUE.equals(x.get("overdue"))).count(); Map<String,Object> data=data(e); data.put("milestones",ms); data.put("milestoneCount",ms.size()); data.put("completedMilestoneCount",completedMilestones); data.put("overdueMilestoneCount",overdueMilestones); data.put("nextMilestone",ms.stream().filter(x->!"COMPLETED".equals(x.get("status"))&&!"CANCELLED".equals(x.get("status"))).findFirst().orElse(null)); return ApiResponse.success("Project execution retrieved",data);
  }
 
+ @GetMapping("/mine/{programId}/activity") @PreAuthorize("isAuthenticated()") @Transactional(readOnly=true)
+ public ApiResponse<List<Map<String,Object>>> mineActivity(@PathVariable UUID programId){
+   UUID uid=com.masterlearning.platform.security.util.SecurityUtils.getCurrentUserId();
+   var e=enrollments.findByProgramIdAndUserId(programId,uid).orElseThrow(()->new AccessDeniedException("You are not enrolled in this program"));
+   return ApiResponse.success("Project learner activity retrieved",activities.findTop100ByProgramIdOrderByCreatedAtDesc(programId).stream().map(a->{Map<String,Object> x=new LinkedHashMap<>();x.put("id",a.getId());x.put("action",a.getAction());x.put("details",a.getDetails());x.put("actor",a.getActor());x.put("createdAt",a.getCreatedAt());return x;}).toList());
+ }
+
  @GetMapping("/mine/{programId}/workspace") @PreAuthorize("isAuthenticated()") @Transactional(readOnly=true)
  public ApiResponse<Map<String,Object>> mineWorkspace(@PathVariable UUID programId){
    UUID uid=com.masterlearning.platform.security.util.SecurityUtils.getCurrentUserId();
    var e=enrollments.findByProgramIdAndUserId(programId,uid).orElseThrow(()->new AccessDeniedException("You are not enrolled in this program"));
    var courses=pathCourses.findByLearningPathProgramIdOrderByLearningPathTitleAscSortOrderAsc(programId).stream()
-      .map(x->{Map<String,Object> m=new LinkedHashMap<>();m.put("courseId",x.getCourse().getId());m.put("title",x.getCourse().getTitle());m.put("status",x.getCourse().getStatus());m.put("sortOrder",x.getSortOrder());m.put("enrolled",courseEnrollments.findByCourseIdAndUserId(x.getCourse().getId(),uid).isPresent());m.put("progressPercent",courseEnrollments.findByCourseIdAndUserId(x.getCourse().getId(),uid).map(z->z.getProgressPercent()).orElse(0));return m;}).toList();
+      .map(x->{Map<String,Object> m=new LinkedHashMap<>();m.put("courseId",x.getCourse().getId());m.put("title",x.getCourse().getTitle());m.put("status",x.getCourse().getStatus());m.put("sortOrder",x.getSortOrder());m.put("enrolled",courseEnrollments.findByCourseIdAndUserId(x.getCourse().getId(),uid).isPresent());m.put("progressPercent",courseEnrollments.findByCourseIdAndUserId(x.getCourse().getId(),uid).map(z->z.getProgressPercent()).orElse(0));m.put("enrollmentId",courseEnrollments.findByCourseIdAndUserId(x.getCourse().getId(),uid).map(z->z.getId()).orElse(null));return m;}).toList();
    Map<String,Object> data=data(e); data.put("courses",courses); return ApiResponse.success("Project workspace retrieved",data);
  }
 
