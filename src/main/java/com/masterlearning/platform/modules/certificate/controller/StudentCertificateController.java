@@ -68,6 +68,7 @@ public class StudentCertificateController {
         Map<String, Object> x = new LinkedHashMap<>();
         x.put("id", c.getId());
         x.put("certificateNumber", c.getCertificateNumber());
+        x.put("courseId", c.getCourse().getId());
         return x;
     }
 }
