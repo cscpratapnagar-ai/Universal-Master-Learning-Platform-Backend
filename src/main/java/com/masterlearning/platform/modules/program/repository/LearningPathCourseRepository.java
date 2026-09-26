@@ -6,4 +6,5 @@ public interface LearningPathCourseRepository extends JpaRepository<LearningPath
  @EntityGraph(attributePaths={"learningPath","learningPath.program","learningPath.program.organization","course","course.organization"})
  List<LearningPathCourse> findByLearningPathIdOrderBySortOrderAsc(UUID pathId);
  Optional<LearningPathCourse> findByLearningPathIdAndCourseId(UUID pathId,UUID courseId);
+ List<LearningPathCourse> findByCourseId(UUID courseId);
 }
