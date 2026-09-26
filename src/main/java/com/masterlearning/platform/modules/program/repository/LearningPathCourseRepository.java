@@ -3,4 +3,7 @@ import com.masterlearning.platform.modules.program.entity.LearningPathCourse; im
 public interface LearningPathCourseRepository extends JpaRepository<LearningPathCourse,UUID>{
  @EntityGraph(attributePaths={"learningPath","learningPath.program","learningPath.program.organization","course","course.organization"})
  List<LearningPathCourse> findByLearningPathProgramIdOrderByLearningPathTitleAscSortOrderAsc(UUID programId);
+ @EntityGraph(attributePaths={"learningPath","learningPath.program","learningPath.program.organization","course","course.organization"})
+ List<LearningPathCourse> findByLearningPathIdOrderBySortOrderAsc(UUID pathId);
+ Optional<LearningPathCourse> findByLearningPathIdAndCourseId(UUID pathId,UUID courseId);
 }
