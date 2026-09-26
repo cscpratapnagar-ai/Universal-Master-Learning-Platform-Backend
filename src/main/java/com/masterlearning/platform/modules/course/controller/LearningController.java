@@ -43,7 +43,7 @@ public class LearningController {
     }
 
     @PostMapping("/courses/{courseId}/modules")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN','INSTRUCTOR','TEACHER')")
     public ApiResponse<Map<String, Object>> addModule(@PathVariable UUID courseId,
                                                        @Valid @RequestBody CreateModuleRequest r) {
         var c = courses.findById(courseId)
