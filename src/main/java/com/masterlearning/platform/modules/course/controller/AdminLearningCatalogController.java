@@ -37,12 +37,14 @@ public class AdminLearningCatalogController {
             CourseModuleRepository modules,
             LessonRepository lessons,
             LessonPrerequisiteRepository prerequisites,
-            CourseAuthorizationService authorization) {
+            CourseAuthorizationService authorization,
+            OrganizationAuthorizationService organizationAuthorization) {
         this.courses = courses;
         this.modules = modules;
         this.lessons = lessons;
         this.prerequisites = prerequisites;
         this.authorization = authorization;
+        this.organizationAuthorization = organizationAuthorization;
     }
 
     @GetMapping("/catalog")
