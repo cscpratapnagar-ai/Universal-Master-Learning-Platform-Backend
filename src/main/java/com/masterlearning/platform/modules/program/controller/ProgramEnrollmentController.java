@@ -94,6 +94,7 @@ public class ProgramEnrollmentController {
  @PutMapping("/{enrollmentId}/cancel") @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN')")
  @Transactional public ApiResponse<Map<String,Object>> cancel(@PathVariable UUID enrollmentId){
    var e=enrollments.findById(enrollmentId).orElseThrow(()->new EntityNotFoundException("Program enrollment not found")); assertManageable(e.getProgram()); e.cancel();
+   activities.save(new com.masterlearning.platform.modules.program.entity.ProgramActivity(e.getProgram(),"LEARNER_UNASSIGNED","Project enrollment "+enrollmentId+" cancelled",String.valueOf(e.getUser().getId())));
    return ApiResponse.success("Program enrollment cancelled",data(e));
  }
 
@@ -107,7 +108,10 @@ public class ProgramEnrollmentController {
    var courseIds=pathCourses.findByLearningPathProgramIdOrderByLearningPathTitleAscSortOrderAsc(e.getProgram().getId()).stream().map(x->x.getCourse().getId()).distinct().toList();
    if(courseIds.isEmpty()){e.updateProgress(0);return;}
    long completed=courseIds.stream().filter(id->courseEnrollments.findByCourseIdAndUserId(id,userId).map(x->x.getProgressPercent()>=100).orElse(false)).count();
-   e.updateProgress((int)Math.round(completed*100.0/courseIds.size())); enrollments.save(e);
+   int nextProgress=(int)Math.round(completed*100.0/courseIds.size());
+   boolean wasCompleted="COMPLETED".equals(e.getStatus());
+   e.updateProgress(nextProgress); enrollments.save(e);
+   if(nextProgress>=100 && !wasCompleted) activities.save(new com.masterlearning.platform.modules.program.entity.ProgramActivity(e.getProgram(),"PROJECT_LEARNER_COMPLETED","Learner "+userId+" completed all project courses",String.valueOf(userId)));
  }
  private void assertManageable(com.masterlearning.platform.modules.program.entity.Program p){
    UUID oid=p.getOrganization()==null?null:p.getOrganization().getId();
