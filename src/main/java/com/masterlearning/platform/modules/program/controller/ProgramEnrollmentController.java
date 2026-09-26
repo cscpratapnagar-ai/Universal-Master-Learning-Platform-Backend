@@ -24,8 +24,8 @@ import java.util.*;
 @RequestMapping("/api/v1/program-enrollments")
 public class ProgramEnrollmentController {
  private final ProgramEnrollmentRepository enrollments; private final ProgramRepository programs; private final UserRepository users;
- private final OrganizationMemberRepository members; private final OrganizationAuthorizationService authorization; private final LearningPathCourseRepository pathCourses; private final EnrollmentRepository courseEnrollments; private final CourseRepository courses;
- public ProgramEnrollmentController(ProgramEnrollmentRepository e,ProgramRepository p,UserRepository u,OrganizationMemberRepository m,OrganizationAuthorizationService a,LearningPathCourseRepository pc,EnrollmentRepository ce,CourseRepository cr){enrollments=e;programs=p;users=u;members=m;authorization=a;pathCourses=pc;courseEnrollments=ce;courses=cr;}
+ private final OrganizationMemberRepository members; private final OrganizationAuthorizationService authorization; private final LearningPathCourseRepository pathCourses; private final EnrollmentRepository courseEnrollments; private final CourseRepository courses; private final ProgramMilestoneRepository milestoneRepository;
+ public ProgramEnrollmentController(ProgramEnrollmentRepository e,ProgramRepository p,UserRepository u,OrganizationMemberRepository m,OrganizationAuthorizationService a,LearningPathCourseRepository pc,EnrollmentRepository ce,CourseRepository cr,ProgramMilestoneRepository mr){enrollments=e;programs=p;users=u;members=m;authorization=a;pathCourses=pc;courseEnrollments=ce;courses=cr;milestoneRepository=mr;}
 
  @PostMapping("/{programId}/users/{userId}") @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN')")
  @Transactional public ApiResponse<Map<String,Object>> enroll(@PathVariable UUID programId,@PathVariable UUID userId){
@@ -58,6 +58,17 @@ public class ProgramEnrollmentController {
    UUID uid=com.masterlearning.platform.security.util.SecurityUtils.getCurrentUserId();
    var e=enrollments.findByProgramIdAndUserId(programId,uid).orElseThrow(()->new AccessDeniedException("You are not enrolled in this program"));
    syncProgress(e,uid); return ApiResponse.success("Program learning progress retrieved",data(e));
+ }
+
+ @GetMapping("/mine/{programId}/execution") @PreAuthorize("isAuthenticated()") @Transactional(readOnly=true)
+ public ApiResponse<Map<String,Object>> mineExecution(@PathVariable UUID programId){
+   UUID uid=com.masterlearning.platform.security.util.SecurityUtils.getCurrentUserId();
+   var e=enrollments.findByProgramIdAndUserId(programId,uid).orElseThrow(()->new AccessDeniedException("You are not enrolled in this program"));
+   syncProgress(e,uid);
+   var milestoneRepo=milestoneRepository;
+   var today=java.time.LocalDate.now();
+   var ms=milestoneRepo.findByProgramIdOrderBySortOrderAscDueDateAsc(programId).stream().map(m->{Map<String,Object> x=new LinkedHashMap<>();x.put("id",m.getId());x.put("title",m.getTitle());x.put("description",m.getDescription());x.put("dueDate",m.getDueDate());x.put("sortOrder",m.getSortOrder());x.put("status",m.getStatus().name());x.put("overdue",m.getDueDate()!=null&&m.getDueDate().isBefore(today)&&m.getStatus()!=ProgramMilestoneStatus.COMPLETED&&m.getStatus()!=ProgramMilestoneStatus.CANCELLED);return x;}).toList();
+   Map<String,Object> data=data(e); data.put("milestones",ms); return ApiResponse.success("Project execution retrieved",data);
  }
 
  @GetMapping("/mine/{programId}/workspace") @PreAuthorize("isAuthenticated()") @Transactional(readOnly=true)
