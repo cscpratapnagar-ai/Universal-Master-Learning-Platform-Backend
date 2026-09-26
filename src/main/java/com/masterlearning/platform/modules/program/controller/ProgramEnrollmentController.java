@@ -7,6 +7,8 @@ import com.masterlearning.platform.modules.program.entity.ProgramEnrollment;
 import com.masterlearning.platform.modules.program.entity.ProgramStatus;
 import com.masterlearning.platform.modules.program.repository.ProgramEnrollmentRepository;
 import com.masterlearning.platform.modules.program.repository.ProgramRepository;
+import com.masterlearning.platform.modules.program.repository.LearningPathCourseRepository;
+import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.constraints.NotNull;
@@ -20,8 +22,8 @@ import java.util.*;
 @RequestMapping("/api/v1/program-enrollments")
 public class ProgramEnrollmentController {
  private final ProgramEnrollmentRepository enrollments; private final ProgramRepository programs; private final UserRepository users;
- private final OrganizationMemberRepository members; private final OrganizationAuthorizationService authorization;
- public ProgramEnrollmentController(ProgramEnrollmentRepository e,ProgramRepository p,UserRepository u,OrganizationMemberRepository m,OrganizationAuthorizationService a){enrollments=e;programs=p;users=u;members=m;authorization=a;}
+ private final OrganizationMemberRepository members; private final OrganizationAuthorizationService authorization; private final LearningPathCourseRepository pathCourses; private final EnrollmentRepository courseEnrollments;
+ public ProgramEnrollmentController(ProgramEnrollmentRepository e,ProgramRepository p,UserRepository u,OrganizationMemberRepository m,OrganizationAuthorizationService a,LearningPathCourseRepository pc,EnrollmentRepository ce){enrollments=e;programs=p;users=u;members=m;authorization=a;pathCourses=pc;courseEnrollments=ce;}
 
  @PostMapping("/{programId}/users/{userId}") @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN')")
  @Transactional public ApiResponse<Map<String,Object>> enroll(@PathVariable UUID programId,@PathVariable UUID userId){
@@ -41,10 +43,18 @@ public class ProgramEnrollmentController {
    return ApiResponse.success("Program learners retrieved",enrollments.findByProgramIdOrderByCreatedAtAsc(programId).stream().map(this::data).toList());
  }
 
- @GetMapping("/mine") @PreAuthorize("isAuthenticated()") @Transactional(readOnly=true)
+ @GetMapping("/mine") @PreAuthorize("isAuthenticated()") @Transactional
  public ApiResponse<List<Map<String,Object>>> mine(){
    UUID uid=com.masterlearning.platform.security.util.SecurityUtils.getCurrentUserId();
-   return ApiResponse.success("My program enrollments retrieved",enrollments.findByUserIdOrderByCreatedAtDesc(uid).stream().map(this::data).toList());
+   var list=enrollments.findByUserIdOrderByCreatedAtDesc(uid); list.forEach(e->syncProgress(e,uid));
+   return ApiResponse.success("My program enrollments retrieved",list.stream().map(this::data).toList());
+ }
+
+ @GetMapping("/mine/{programId}") @PreAuthorize("isAuthenticated()") @Transactional
+ public ApiResponse<Map<String,Object>> mineProgram(@PathVariable UUID programId){
+   UUID uid=com.masterlearning.platform.security.util.SecurityUtils.getCurrentUserId();
+   var e=enrollments.findByProgramIdAndUserId(programId,uid).orElseThrow(()->new AccessDeniedException("You are not enrolled in this program"));
+   syncProgress(e,uid); return ApiResponse.success("Program learning progress retrieved",data(e));
  }
 
  @PutMapping("/{enrollmentId}/cancel") @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN')")
@@ -53,6 +63,12 @@ public class ProgramEnrollmentController {
    return ApiResponse.success("Program enrollment cancelled",data(e));
  }
 
+ private void syncProgress(ProgramEnrollment e, UUID userId){
+   var courseIds=pathCourses.findByLearningPathProgramIdOrderByLearningPathTitleAscSortOrderAsc(e.getProgram().getId()).stream().map(x->x.getCourse().getId()).distinct().toList();
+   if(courseIds.isEmpty()){e.updateProgress(0);return;}
+   long completed=courseIds.stream().filter(id->courseEnrollments.findByCourseIdAndUserId(id,userId).map(x->x.getProgressPercent()>=100).orElse(false)).count();
+   e.updateProgress((int)Math.round(completed*100.0/courseIds.size())); enrollments.save(e);
+ }
  private void assertManageable(com.masterlearning.platform.modules.program.entity.Program p){
    UUID oid=p.getOrganization()==null?null:p.getOrganization().getId();
    boolean superAdmin=org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication()!=null &&
