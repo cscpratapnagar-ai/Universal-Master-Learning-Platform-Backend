@@ -102,6 +102,41 @@ public class ProgramLearnerIntelligenceService {
         return out;
     }
 
+    @Transactional(readOnly = true)
+    public Map<String,Object> interventionQueue(UUID programId) {
+        Map<String,Object> analysis = analyze(programId);
+        List<?> learners = (List<?>) analysis.get("learners");
+        List<Map<String,Object>> queue = new ArrayList<>();
+        for (Object raw : learners) {
+            @SuppressWarnings("unchecked") Map<String,Object> learner = (Map<String,Object>) raw;
+            String level = String.valueOf(learner.get("riskLevel"));
+            if (!"ON_TRACK".equals(level)) {
+                Map<String,Object> item = new LinkedHashMap<>(learner);
+                item.put("priority", "CRITICAL".equals(level) ? 1 : "AT_RISK".equals(level) ? 2 : 3);
+                item.put("interventionType", interventionType(level, (List<String>) learner.get("riskReasons")));
+                queue.add(item);
+            }
+        }
+        queue.sort(Comparator.comparingInt(x -> (Integer)x.get("priority")));
+        Map<String,Object> out = new LinkedHashMap<>();
+        out.put("total", queue.size());
+        out.put("immediate", queue.stream().filter(x -> ((Integer)x.get("priority")) == 1).count());
+        out.put("targeted", queue.stream().filter(x -> ((Integer)x.get("priority")) == 2).count());
+        out.put("watch", queue.stream().filter(x -> ((Integer)x.get("priority")) == 3).count());
+        out.put("queue", queue);
+        out.put("generatedAt", Instant.now());
+        return out;
+    }
+
+    private String interventionType(String level, List<String> reasons) {
+        String joined = String.join(" ", reasons).toLowerCase();
+        if (joined.contains("activity")) return "RE_ENGAGEMENT";
+        if (joined.contains("overdue")) return "DEADLINE_SUPPORT";
+        if (joined.contains("not started")) return "START_NUDGE";
+        if (joined.contains("below 25%")) return "PROGRESS_COACHING";
+        return "LEARNER_SUPPORT";
+    }
+
     private int severity(String level) {
         return switch (level) {
             case "CRITICAL" -> 4;
