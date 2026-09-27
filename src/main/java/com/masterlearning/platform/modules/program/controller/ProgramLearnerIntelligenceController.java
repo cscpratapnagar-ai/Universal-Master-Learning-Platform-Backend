@@ -41,4 +41,20 @@ public class ProgramLearnerIntelligenceController {
         }
         return ApiResponse.success("Learner intelligence retrieved", intelligence.analyze(programId));
     }
+    @GetMapping("/{programId}/interventions")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','ORG_ADMIN','INSTRUCTOR','TEACHER')")
+    public ApiResponse<Map<String,Object>> interventions(@PathVariable UUID programId) {
+        var program = programs.findWithOrganizationById(programId)
+                .orElseThrow(() -> new NoSuchElementException("Program not found"));
+        UUID organizationId = program.getOrganization() == null ? null : program.getOrganization().getId();
+        boolean superAdmin = org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .getAuthentication() != null
+                && org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication()
+                .getAuthorities().stream().anyMatch(a -> "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+        if (!superAdmin && (organizationId == null || !authorization.canAccessOrganization(organizationId))) {
+            throw new AccessDeniedException("You do not have access to this organization");
+        }
+        return ApiResponse.success("Learner intervention queue retrieved", intelligence.interventionQueue(programId));
+    }
+
 }
