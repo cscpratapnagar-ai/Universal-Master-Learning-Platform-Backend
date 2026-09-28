@@ -29,5 +29,6 @@ public class BillingPayment {
     public String getProviderPaymentId(){return providerPaymentId;} public String getFailureReason(){return failureReason;}
     public void capture(String providerPaymentId){this.providerPaymentId=providerPaymentId;this.status="CAPTURED";this.paidAt=LocalDateTime.now();this.updatedAt=LocalDateTime.now();}
     public void fail(String reason){this.status="FAILED";this.failureReason=reason;this.updatedAt=LocalDateTime.now();}
+    public void refund(){this.status="REFUNDED";this.updatedAt=LocalDateTime.now();}
     public BigDecimal getAmount(){return amount;} public String getCurrency(){return currency;} public String getStatus(){return status;}
 }
