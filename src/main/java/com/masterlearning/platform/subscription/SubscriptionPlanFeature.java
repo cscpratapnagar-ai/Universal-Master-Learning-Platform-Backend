@@ -20,6 +20,13 @@ public class SubscriptionPlanFeature {
 
     protected SubscriptionPlanFeature() {}
 
+    public SubscriptionPlanFeature(UUID id, UUID planId, String featureCode, String featureValue) {
+        this.id = id;
+        this.planId = planId;
+        this.featureCode = featureCode;
+        this.featureValue = featureValue;
+    }
+
     public UUID getId(){ return id; }
     public UUID getPlanId(){ return planId; }
     public String getFeatureCode(){ return featureCode; }
