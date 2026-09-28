@@ -25,6 +25,7 @@ public class BillingOrderService {
     private final BillingPaymentRepository payments;
     private final BillingInvoiceRepository invoicesRepository;
     private final BillingRefundRepository refunds;
+    private final BillingWebhookEventRepository webhookEvents;
     private final SubscriptionPlanRepository plans;
     private final UserSubscriptionService subscriptions;
     private final ObjectMapper mapper;
@@ -33,13 +34,13 @@ public class BillingOrderService {
     private final String webhookSecret;
     private final RestClient razorpay;
 
-    public BillingOrderService(BillingOrderRepository orders, BillingPaymentRepository payments, BillingInvoiceRepository invoices, BillingRefundRepository refunds,
+    public BillingOrderService(BillingOrderRepository orders, BillingPaymentRepository payments, BillingInvoiceRepository invoices, BillingRefundRepository refunds, BillingWebhookEventRepository webhookEvents,
             SubscriptionPlanRepository plans, UserSubscriptionService subscriptions, ObjectMapper mapper,
             @Value("${app.payment.razorpay.key-id:}") String keyId,
             @Value("${app.payment.razorpay.key-secret:}") String keySecret,
             @Value("${app.payment.razorpay.webhook-secret:}") String webhookSecret,
             @Value("${app.payment.razorpay.base-url:https://api.razorpay.com/v1}") String baseUrl) {
-        this.orders = orders; this.payments = payments; this.invoicesRepository = invoices; this.refunds = refunds; this.plans = plans; this.subscriptions = subscriptions;
+        this.orders = orders; this.payments = payments; this.invoicesRepository = invoices; this.refunds = refunds; this.webhookEvents = webhookEvents; this.plans = plans; this.subscriptions = subscriptions;
         this.mapper = mapper; this.keyId = keyId == null ? "" : keyId.trim(); this.keySecret = keySecret == null ? "" : keySecret.trim(); this.webhookSecret = webhookSecret == null ? "" : webhookSecret.trim();
         this.razorpay = RestClient.builder().baseUrl(baseUrl).build();
     }
@@ -106,6 +107,18 @@ public class BillingOrderService {
             if (!"order.paid".equals(event) && !"payment.captured".equals(event)) {
                 return;
             }
+            String eventId = root.path("payload").path("payment").path("entity").path("id").asText();
+            if (eventId.isBlank()) eventId = root.path("id").asText();
+            if (eventId.isBlank()) throw new IllegalArgumentException("Razorpay webhook event id is missing");
+            String payloadHash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(rawBody.getBytes(StandardCharsets.UTF_8)));
+            var existingEvent = webhookEvents.findByProviderAndEventId("RAZORPAY", eventId);
+            if (existingEvent.isPresent()) {
+                if ("PROCESSED".equals(existingEvent.get().getStatus())) return;
+                if ("RECEIVED".equals(existingEvent.get().getStatus())) return;
+            }
+            var webhookEvent = existingEvent.orElseGet(() -> webhookEvents.save(
+                    new BillingWebhookEvent("RAZORPAY", eventId, event, payloadHash)));
 
             JsonNode paymentEntity = root.path("payload").path("payment").path("entity");
             String paymentId = paymentEntity.path("id").asText();
@@ -141,6 +154,8 @@ public class BillingOrderService {
             subscriptions.activatePending(
                     order.getUserId(), plan.getCode(), order.getBillingCycle(), start, end, paymentId
             );
+            webhookEvent.processed();
+            webhookEvents.save(webhookEvent);
         } catch (Exception ex) {
             if (ex instanceof SecurityException || ex instanceof IllegalArgumentException) throw ex;
             throw new IllegalStateException("Unable to process Razorpay webhook", ex);
