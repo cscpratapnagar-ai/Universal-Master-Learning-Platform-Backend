@@ -209,9 +209,7 @@ public class BillingOrderService {
             refund.refunded(refundId);
             if (refundAmount.compareTo(refundable) == 0) {
                 order.cancel();
-                invoicesRepository.findTop50ByUserIdOrderByIssuedAtDesc(order.getUserId()).stream()
-                        .filter(invoice -> invoice.getOrderId().equals(orderId))
-                        .findFirst()
+                invoicesRepository.findByOrderId(orderId)
                         .ifPresent(BillingInvoice::markRefunded);
             }
         } catch (Exception ex) {
