@@ -31,6 +31,7 @@ public class BillingOrder {
     public String getBillingCycle(){return billingCycle;} public BigDecimal getAmount(){return amount;}
     public String getCurrency(){return currency;} public String getStatus(){return status;}
     public String getExternalOrderId(){return externalOrderId;} public LocalDateTime getCreatedAt(){return createdAt;}
+    public void setExternalOrderId(String externalOrderId){this.externalOrderId=externalOrderId;this.updatedAt=LocalDateTime.now();}
     public void markPendingPayment(){status="PENDING_PAYMENT";updatedAt=LocalDateTime.now();}
     public void markPaid(){status="PAID";updatedAt=LocalDateTime.now();}
     public void markFailed(){status="FAILED";updatedAt=LocalDateTime.now();}
