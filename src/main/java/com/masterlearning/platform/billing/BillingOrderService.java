@@ -98,6 +98,9 @@ public class BillingOrderService {
 
         var payment = payments.findByOrderId(order.getId())
                 .orElseThrow(() -> new IllegalStateException("Payment record not found"));
+        if (payment.getProviderPaymentId() != null && !payment.getProviderPaymentId().equals(razorpayPaymentId)) {
+            throw new SecurityException("Payment record is already linked to a different Razorpay payment");
+        }
         payment.capture(razorpayPaymentId); payments.save(payment); order.markPaid(); orders.save(order);
         issueInvoice(order);
         var start = LocalDate.now();
@@ -153,6 +156,10 @@ public class BillingOrderService {
             var payment = payments.findByOrderId(order.getId())
                     .orElseThrow(() -> new IllegalStateException("Payment record not found"));
 
+            if (paymentId.isBlank()) throw new IllegalArgumentException("Razorpay payment id is missing");
+            if (payment.getProviderPaymentId() != null && !payment.getProviderPaymentId().equals(paymentId)) {
+                throw new IllegalStateException("Payment record is already linked to a different Razorpay payment");
+            }
             payment.capture(paymentId);
             payments.save(payment);
             order.markPaid();
@@ -208,7 +215,10 @@ public class BillingOrderService {
             if (refundId.isBlank()) throw new IllegalStateException("Razorpay did not return refund id");
             refund.refunded(refundId);
             if (refundAmount.compareTo(refundable) == 0) {
-                order.cancel();
+                order.refund();
+                payment.refund();
+                payments.save(payment);
+                subscriptions.cancelForRefund(order.getUserId());
                 invoicesRepository.findByOrderId(orderId)
                         .ifPresent(BillingInvoice::markRefunded);
             }
