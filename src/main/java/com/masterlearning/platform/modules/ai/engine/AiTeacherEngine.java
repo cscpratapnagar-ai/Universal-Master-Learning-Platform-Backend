@@ -19,7 +19,9 @@ public class AiTeacherEngine {
         var llmResponse = llmClient.teach(request);
         if (llmResponse.isPresent()) return llmResponse.get();
         String topic = safe(request == null ? null : request.topic(), "today's topic");
+        String subject = safe(request == null ? null : request.subject(), "GENERAL");
         String language = safe(request == null ? null : request.language(), "EN").toUpperCase(Locale.ROOT);
+        topic = subject + ": " + topic;
         String phase = safe(request == null ? null : request.phase(), "INTRO").toUpperCase(Locale.ROOT);
 
         return switch (phase) {
