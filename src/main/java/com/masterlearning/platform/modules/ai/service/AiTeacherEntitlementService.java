@@ -2,33 +2,33 @@ package com.masterlearning.platform.modules.ai.service;
 
 import com.masterlearning.platform.modules.user.entity.User;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Value;
+import com.masterlearning.platform.subscription.SubscriptionPlan;
+import com.masterlearning.platform.subscription.SubscriptionPlanFeature;
+import com.masterlearning.platform.subscription.SubscriptionPlanFeatureRepository;
+import com.masterlearning.platform.subscription.SubscriptionPlanRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class AiTeacherEntitlementService {
 
+    private static final String AI_TEACHER_MONTHLY_TURNS = "AI_TEACHER_MONTHLY_TURNS";
+
     private final UserRepository users;
-    private final int freeMonthlyTurns;
-    private final int premiumMonthlyTurns;
-    private final int proMonthlyTurns;
-    private final int enterpriseMonthlyTurns;
+    private final SubscriptionPlanRepository plans;
+    private final SubscriptionPlanFeatureRepository features;
 
     public AiTeacherEntitlementService(
             UserRepository users,
-            @Value("${app.ai.teacher.quota.free-monthly-turns:25}") int freeMonthlyTurns,
-            @Value("${app.ai.teacher.quota.premium-monthly-turns:500}") int premiumMonthlyTurns,
-            @Value("${app.ai.teacher.quota.pro-monthly-turns:2000}") int proMonthlyTurns,
-            @Value("${app.ai.teacher.quota.enterprise-monthly-turns:10000}") int enterpriseMonthlyTurns) {
+            SubscriptionPlanRepository plans,
+            SubscriptionPlanFeatureRepository features) {
         this.users = users;
-        this.freeMonthlyTurns = freeMonthlyTurns;
-        this.premiumMonthlyTurns = premiumMonthlyTurns;
-        this.proMonthlyTurns = proMonthlyTurns;
-        this.enterpriseMonthlyTurns = enterpriseMonthlyTurns;
+        this.plans = plans;
+        this.features = features;
     }
 
     public Entitlement getEntitlement(UUID userId) {
@@ -37,23 +37,58 @@ public class AiTeacherEntitlementService {
 
         Set<String> roles = user.getRoles().stream()
                 .map(role -> role.getCode() == null ? "" : role.getCode().toUpperCase(Locale.ROOT))
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
 
+        String planCode = resolvePlanCode(roles);
+        SubscriptionPlan plan = plans.findByCode(planCode)
+                .orElseGet(() -> plans.findByCode("FREE")
+                        .orElseThrow(() -> new IllegalStateException("FREE subscription plan is not configured")));
+
+        int monthlyLimit = readMonthlyTurns(plan);
+        return new Entitlement(plan.getCode(), monthlyLimit);
+    }
+
+    private String resolvePlanCode(Set<String> roles) {
         if (containsAny(roles, "SUPER_ADMIN", "ENTERPRISE", "AI_TEACHER_ENTERPRISE")) {
-            return new Entitlement("ENTERPRISE", enterpriseMonthlyTurns);
+            return "ENTERPRISE";
         }
         if (containsAny(roles, "PRO", "AI_TEACHER_PRO")) {
-            return new Entitlement("PRO", proMonthlyTurns);
+            return "PRO";
         }
         if (containsAny(roles, "PREMIUM", "AI_TEACHER_PREMIUM")) {
-            return new Entitlement("PREMIUM", premiumMonthlyTurns);
+            return "PREMIUM";
         }
-        return new Entitlement("FREE", freeMonthlyTurns);
+        return "FREE";
+    }
+
+    private int readMonthlyTurns(SubscriptionPlan plan) {
+        return features.findByPlanId(plan.getId()).stream()
+                .filter(feature -> AI_TEACHER_MONTHLY_TURNS.equalsIgnoreCase(feature.getFeatureCode()))
+                .map(SubscriptionPlanFeature::getFeatureValue)
+                .findFirst()
+                .map(this::parseLimit)
+                .orElse(0);
+    }
+
+    private int parseLimit(String value) {
+        if (value == null || value.isBlank()) {
+            return 0;
+        }
+        if ("UNLIMITED".equalsIgnoreCase(value.trim())) {
+            return -1;
+        }
+        try {
+            return Math.max(0, Integer.parseInt(value.trim()));
+        } catch (NumberFormatException ex) {
+            return 0;
+        }
     }
 
     private boolean containsAny(Set<String> roles, String... expected) {
         for (String role : expected) {
-            if (roles.contains(role)) return true;
+            if (roles.contains(role)) {
+                return true;
+            }
         }
         return false;
     }
