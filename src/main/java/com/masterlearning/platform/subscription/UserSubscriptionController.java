@@ -17,6 +17,11 @@ public class UserSubscriptionController {
         this.service = service;
     }
 
+    @PostMapping("/cancel")
+    public ApiResponse<UserSubscriptionResponse> cancel() {
+        return ApiResponse.success("Subscription cancelled", service.cancel(SecurityUtils.getCurrentUserId()));
+    }
+
     @GetMapping("/me")
     public ApiResponse<UserSubscriptionResponse> current() {
         UUID userId = SecurityUtils.getCurrentUserId();
