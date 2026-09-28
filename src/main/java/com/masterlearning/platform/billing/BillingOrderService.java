@@ -58,7 +58,7 @@ public class BillingOrderService {
         payments.save(new BillingPayment(UUID.randomUUID(), order.getId(), "RAZORPAY", amount, plan.getCurrency()));
         subscriptions.createPending(userId, plan.getCode(), cycle);
 
-        return new BillingOrderResponse(order.getId(), plan.getCode(), plan.getName(), cycle, amount, plan.getCurrency(), order.getStatus(), "RAZORPAY");
+        return new BillingOrderResponse(order.getId(), plan.getCode(), plan.getName(), cycle, amount, plan.getCurrency(), order.getStatus(), "RAZORPAY", order.getExternalOrderId(), keyId);
     }
 
     @Transactional
