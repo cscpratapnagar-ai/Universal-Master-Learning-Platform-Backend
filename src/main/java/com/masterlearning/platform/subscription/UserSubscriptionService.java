@@ -23,6 +23,14 @@ public class UserSubscriptionService {
                 .orElseGet(() -> freeResponse());
     }
 
+    @Transactional(readOnly = true)
+    public boolean hasCurrentPaidSubscription(UUID userId) {
+        return subscriptions.findCurrentByUserId(userId)
+                .map(subscription -> !"FREE".equalsIgnoreCase(
+                        plans.findById(subscription.getPlanId()).map(SubscriptionPlan::getCode).orElse("FREE")))
+                .orElse(false);
+    }
+
     @Transactional
     public UserSubscription createPending(UUID userId, String planCode, String billingCycle) {
         var existing = subscriptions.findCurrentByUserId(userId);
