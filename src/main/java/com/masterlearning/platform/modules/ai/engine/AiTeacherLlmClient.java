@@ -33,6 +33,7 @@ public class AiTeacherLlmClient {
     public Optional<AiTeacherTurnResponse> teach(AiTeacherTurnRequest request) {
         if (apiKey.isBlank()) return Optional.empty();
         String topic = safe(request == null ? null : request.topic(), "today's topic");
+        String subject = safe(request == null ? null : request.subject(), "GENERAL");
         String language = safe(request == null ? null : request.language(), "EN");
         String phase = safe(request == null ? null : request.phase(), "INTRO");
         int minute = request == null || request.lectureMinute() == null ? 0 : request.lectureMinute();
@@ -43,6 +44,8 @@ public class AiTeacherLlmClient {
                 Teach like an excellent human teacher, not like a generic chatbot.
                 Stay on the requested topic. Adapt difficulty from the student's answer.
                 If the student is confused, simplify and give a hint before the answer.
+                Use subject-appropriate teaching: equations and worked steps for mathematics, models and experiments for science, timelines and evidence for social science, language examples for English, and executable logic or pseudocode for computer science.
+                Prefer visualMode values such as DIAGRAM_2D, ANIMATION, REAL_LIFE_SCENE, INTERACTIVE_MODEL, DIGITAL_BOARD, or SUMMARY_BOARD when they genuinely help.
                 Return ONLY one valid JSON object with exactly these keys:
                 phase, teacherText, teachingMode, visualMode, nextPhase, askStudent, studentPrompt, lectureComplete.
                 Allowed phases: INTRO, EXPLAIN, EXAMPLE, CHECK, PRACTICE, RECAP, COMPLETE.
@@ -50,11 +53,12 @@ public class AiTeacherLlmClient {
                 studentPrompt should be empty when askStudent is false.
                 lectureComplete must be true only in RECAP or COMPLETE.
                 language: %s
+                subject: %s
                 topic: %s
                 currentPhase: %s
                 lectureMinute: %d
                 studentMessage: %s
-                """.formatted(language, topic, phase, minute, studentMessage);
+                """.formatted(language, subject, topic, phase, minute, studentMessage);
 
         try {
             Map<String, Object> body = new LinkedHashMap<>();
