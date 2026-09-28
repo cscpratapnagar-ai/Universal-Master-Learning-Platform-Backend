@@ -50,7 +50,6 @@ public class BillingOrderService {
         String cycle = request.billingCycle() == null ? "MONTHLY" : request.billingCycle().trim().toUpperCase();
         if (!cycle.equals("MONTHLY") && !cycle.equals("YEARLY")) throw new IllegalArgumentException("Billing cycle must be MONTHLY or YEARLY");
         BigDecimal amount = cycle.equals("YEARLY") ? plan.getYearlyPrice() : plan.getMonthlyPrice();
-        subscriptions.current(userId); // resolve current subscription before creating a gateway order
         if (subscriptions.hasCurrentPaidSubscription(userId)) {
             throw new IllegalStateException("User already has a current paid subscription");
         }
