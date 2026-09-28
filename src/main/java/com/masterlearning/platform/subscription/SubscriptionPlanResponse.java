@@ -10,5 +10,6 @@ public record SubscriptionPlanResponse(
     BigDecimal monthlyPrice,
     BigDecimal yearlyPrice,
     String currency,
+    boolean active,
     Map<String, String> features
 ) {}
