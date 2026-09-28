@@ -76,6 +76,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/forgot-password",
                                 "/api/v1/auth/reset-password",
                                 "/api/v1/public/**",
+                                "/api/v1/student/billing/webhooks/razorpay",
                                 "/api/v1/health",
                                 "/actuator/health",
                                 "/actuator/info",
