@@ -14,6 +14,11 @@ public class SuperAdminBillingController {
         this.billing = billing;
     }
 
+    @GetMapping("/orders")
+    public ApiResponse<java.util.List<BillingOrderSummary>> orders() {
+        return ApiResponse.success("Billing orders loaded", billing.allOrders());
+    }
+
     @PostMapping("/orders/{orderId}/refund")
     public ApiResponse<BillingRefund> refund(@PathVariable String orderId, @RequestBody RefundRequest request) {
         return ApiResponse.success(
