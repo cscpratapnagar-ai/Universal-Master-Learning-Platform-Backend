@@ -167,7 +167,7 @@ public class BillingOrderService {
     public BillingRefund refund(UUID orderId, BigDecimal amount, String reason) {
         var order = orders.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Billing order not found"));
         if (!"PAID".equals(order.getStatus())) throw new IllegalStateException("Only paid orders can be refunded");
-        var payment = payments.findAll().stream().filter(item -> item.getOrderId().equals(orderId)).findFirst()
+        var payment = payments.findByOrderId(orderId)
                 .orElseThrow(() -> new IllegalStateException("Payment record not found"));
         if (payment.getProviderPaymentId() == null || payment.getProviderPaymentId().isBlank())
             throw new IllegalStateException("Provider payment id is missing");
