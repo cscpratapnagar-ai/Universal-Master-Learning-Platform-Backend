@@ -81,8 +81,10 @@ public class UserSubscriptionService {
 
     @Transactional
     public UserSubscriptionResponse cancelForRefund(UUID userId) {
-        var subscription = subscriptions.findCurrentByUserId(userId)
-                .orElseThrow(() -> new IllegalStateException("No current subscription found"));
+        var subscription = subscriptions.findCurrentByUserId(userId).orElse(null);
+        if (subscription == null) {
+            return freeResponse();
+        }
         if ("CANCELLED".equals(subscription.getStatus()) || "EXPIRED".equals(subscription.getStatus())) {
             return toResponse(subscription);
         }
