@@ -6,11 +6,13 @@ import com.masterlearning.platform.modules.user.repository.UserRepository;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
+@Profile("local")
 public class SuperAdminBootstrap {
 
     private static final String EMAIL = "superadmin@masterlearning.local";
