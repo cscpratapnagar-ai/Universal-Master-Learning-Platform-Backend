@@ -80,6 +80,21 @@ public class UserSubscriptionService {
     }
 
     @Transactional
+    public UserSubscriptionResponse cancelForRefund(UUID userId) {
+        var subscription = subscriptions.findCurrentByUserId(userId)
+                .orElseThrow(() -> new IllegalStateException("No current subscription found"));
+        if ("CANCELLED".equals(subscription.getStatus()) || "EXPIRED".equals(subscription.getStatus())) {
+            return toResponse(subscription);
+        }
+        subscription.cancel();
+        var saved = subscriptions.save(subscription);
+        notifications.create(userId, "SUBSCRIPTION_REFUNDED", "Subscription ended after refund",
+                "Your paid subscription was ended because the payment was fully refunded.",
+                "/learner/billing");
+        return toResponse(saved);
+    }
+
+    @Transactional
     public UserSubscriptionResponse cancel(UUID userId) {
         var subscription = subscriptions.findCurrentByUserId(userId)
                 .orElseThrow(() -> new IllegalStateException("No current subscription found"));
