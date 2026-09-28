@@ -81,7 +81,7 @@ public class BillingOrderService {
         if (razorpaySignature == null || !java.security.MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), razorpaySignature.getBytes(StandardCharsets.UTF_8)))
             throw new SecurityException("Invalid payment signature");
 
-        var payment = payments.findAll().stream().filter(item -> item.getOrderId().equals(order.getId())).findFirst()
+        var payment = payments.findByOrderId(order.getId())
                 .orElseThrow(() -> new IllegalStateException("Payment record not found"));
         payment.capture(razorpayPaymentId); payments.save(payment); order.markPaid(); orders.save(order);
         issueInvoice(order);
@@ -122,9 +122,7 @@ public class BillingOrderService {
                 return;
             }
 
-            var payment = payments.findAll().stream()
-                    .filter(item -> item.getOrderId().equals(order.getId()))
-                    .findFirst()
+            var payment = payments.findByOrderId(order.getId())
                     .orElseThrow(() -> new IllegalStateException("Payment record not found"));
 
             payment.capture(paymentId);
@@ -158,8 +156,13 @@ public class BillingOrderService {
         if (payment.getProviderPaymentId() == null || payment.getProviderPaymentId().isBlank())
             throw new IllegalStateException("Provider payment id is missing");
         BigDecimal refundAmount = amount == null ? payment.getAmount() : amount;
-        if (refundAmount.signum() <= 0 || refundAmount.compareTo(payment.getAmount()) > 0)
-            throw new IllegalArgumentException("Refund amount is outside the paid amount");
+        if (refundAmount.signum() <= 0) throw new IllegalArgumentException("Refund amount must be positive");
+
+        BigDecimal alreadyRefunded = refunds.findByPaymentIdAndStatus(payment.getId(), "REFUNDED").stream()
+                .map(BillingRefund::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal refundable = payment.getAmount().subtract(alreadyRefunded);
+        if (refundAmount.compareTo(refundable) > 0)
+            throw new IllegalArgumentException("Refund amount exceeds the remaining refundable amount");
 
         var refund = new BillingRefund(UUID.randomUUID(), payment.getId(), orderId, order.getUserId(),
                 "RAZORPAY", refundAmount, payment.getCurrency(), reason);
@@ -174,7 +177,13 @@ public class BillingOrderService {
             String refundId = node.path("id").asText();
             if (refundId.isBlank()) throw new IllegalStateException("Razorpay did not return refund id");
             refund.refunded(refundId);
-            if (refundAmount.compareTo(payment.getAmount()) == 0) order.markFailed();
+            if (refundAmount.compareTo(refundable) == 0) {
+                order.cancel();
+                invoicesRepository.findTop50ByUserIdOrderByIssuedAtDesc(order.getUserId()).stream()
+                        .filter(invoice -> invoice.getOrderId().equals(orderId))
+                        .findFirst()
+                        .ifPresent(BillingInvoice::markRefunded);
+            }
         } catch (Exception ex) {
             refund.failed();
             throw new IllegalStateException("Unable to process refund", ex);
