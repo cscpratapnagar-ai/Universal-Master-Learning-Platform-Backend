@@ -1,4 +1,12 @@
 spring:
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS:false}
   application:
     name: universal-master-learning-platform-backend
   profiles:
@@ -49,16 +57,6 @@ app:
         premium-monthly-turns: ${AI_TEACHER_PREMIUM_MONTHLY_TURNS:500}
         pro-monthly-turns: ${AI_TEACHER_PRO_MONTHLY_TURNS:2000}
         enterprise-monthly-turns: ${AI_TEACHER_ENTERPRISE_MONTHLY_TURNS:10000}
-
-spring:
-  mail:
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:1025}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
-    properties:
-      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
-      mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS:false}
 
 management:
   endpoints:
