@@ -24,6 +24,7 @@ public class BillingOrderService {
     private final BillingOrderRepository orders;
     private final BillingPaymentRepository payments;
     private final BillingInvoiceRepository invoicesRepository;
+    private final BillingRefundRepository refunds;
     private final SubscriptionPlanRepository plans;
     private final UserSubscriptionService subscriptions;
     private final ObjectMapper mapper;
@@ -32,13 +33,13 @@ public class BillingOrderService {
     private final String webhookSecret;
     private final RestClient razorpay;
 
-    public BillingOrderService(BillingOrderRepository orders, BillingPaymentRepository payments, BillingInvoiceRepository invoices,
+    public BillingOrderService(BillingOrderRepository orders, BillingPaymentRepository payments, BillingInvoiceRepository invoices, BillingRefundRepository refunds,
             SubscriptionPlanRepository plans, UserSubscriptionService subscriptions, ObjectMapper mapper,
             @Value("${app.payment.razorpay.key-id:}") String keyId,
             @Value("${app.payment.razorpay.key-secret:}") String keySecret,
             @Value("${app.payment.razorpay.webhook-secret:}") String webhookSecret,
             @Value("${app.payment.razorpay.base-url:https://api.razorpay.com/v1}") String baseUrl) {
-        this.orders = orders; this.payments = payments; this.invoicesRepository = invoices; this.plans = plans; this.subscriptions = subscriptions;
+        this.orders = orders; this.payments = payments; this.invoicesRepository = invoices; this.refunds = refunds; this.plans = plans; this.subscriptions = subscriptions;
         this.mapper = mapper; this.keyId = keyId == null ? "" : keyId.trim(); this.keySecret = keySecret == null ? "" : keySecret.trim(); this.webhookSecret = webhookSecret == null ? "" : webhookSecret.trim();
         this.razorpay = RestClient.builder().baseUrl(baseUrl).build();
     }
@@ -146,6 +147,39 @@ public class BillingOrderService {
             if (ex instanceof SecurityException || ex instanceof IllegalArgumentException) throw ex;
             throw new IllegalStateException("Unable to process Razorpay webhook", ex);
         }
+    }
+
+    @Transactional
+    public BillingRefund refund(UUID orderId, BigDecimal amount, String reason) {
+        var order = orders.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Billing order not found"));
+        if (!"PAID".equals(order.getStatus())) throw new IllegalStateException("Only paid orders can be refunded");
+        var payment = payments.findAll().stream().filter(item -> item.getOrderId().equals(orderId)).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Payment record not found"));
+        if (payment.getProviderPaymentId() == null || payment.getProviderPaymentId().isBlank())
+            throw new IllegalStateException("Provider payment id is missing");
+        BigDecimal refundAmount = amount == null ? payment.getAmount() : amount;
+        if (refundAmount.signum() <= 0 || refundAmount.compareTo(payment.getAmount()) > 0)
+            throw new IllegalArgumentException("Refund amount is outside the paid amount");
+
+        var refund = new BillingRefund(UUID.randomUUID(), payment.getId(), orderId, order.getUserId(),
+                "RAZORPAY", refundAmount, payment.getCurrency(), reason);
+        try {
+            var body = new java.util.LinkedHashMap<String,Object>();
+            body.put("amount", refundAmount.movePointRight(2).longValueExact());
+            String raw = razorpay.post().uri("/payments/" + payment.getProviderPaymentId() + "/refund")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .headers(h -> h.setBasicAuth(keyId, keySecret))
+                    .body(body).retrieve().body(String.class);
+            JsonNode node = mapper.readTree(raw);
+            String refundId = node.path("id").asText();
+            if (refundId.isBlank()) throw new IllegalStateException("Razorpay did not return refund id");
+            refund.refunded(refundId);
+            if (refundAmount.compareTo(payment.getAmount()) == 0) order.markFailed();
+        } catch (Exception ex) {
+            refund.failed();
+            throw new IllegalStateException("Unable to process refund", ex);
+        }
+        return refunds.save(refund);
     }
 
     private void issueInvoice(BillingOrder order) {
