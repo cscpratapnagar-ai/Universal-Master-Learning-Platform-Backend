@@ -23,7 +23,7 @@ import java.util.UUID;
 public class BillingOrderService {
     private final BillingOrderRepository orders;
     private final BillingPaymentRepository payments;
-    private final BillingInvoiceRepository invoices;
+    private final BillingInvoiceRepository invoicesRepository;
     private final SubscriptionPlanRepository plans;
     private final UserSubscriptionService subscriptions;
     private final ObjectMapper mapper;
@@ -38,9 +38,14 @@ public class BillingOrderService {
             @Value("${app.payment.razorpay.key-secret:}") String keySecret,
             @Value("${app.payment.razorpay.webhook-secret:}") String webhookSecret,
             @Value("${app.payment.razorpay.base-url:https://api.razorpay.com/v1}") String baseUrl) {
-        this.orders = orders; this.payments = payments; this.invoices = invoices; this.plans = plans; this.subscriptions = subscriptions;
+        this.orders = orders; this.payments = payments; this.invoicesRepository = invoices; this.plans = plans; this.subscriptions = subscriptions;
         this.mapper = mapper; this.keyId = keyId == null ? "" : keyId.trim(); this.keySecret = keySecret == null ? "" : keySecret.trim(); this.webhookSecret = webhookSecret == null ? "" : webhookSecret.trim();
         this.razorpay = RestClient.builder().baseUrl(baseUrl).build();
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<BillingInvoice> invoices(UUID userId) {
+        return invoicesRepository.findTop50ByUserIdOrderByIssuedAtDesc(userId);
     }
 
     @Transactional
@@ -144,13 +149,13 @@ public class BillingOrderService {
     }
 
     private void issueInvoice(BillingOrder order) {
-        if (invoices.existsByOrderId(order.getId())) return;
+        if (invoicesRepository.existsByOrderId(order.getId())) return;
         var invoice = new BillingInvoice(
                 UUID.randomUUID(), order.getId(), order.getUserId(),
                 "MLS-" + order.getId().toString().replace("-", "").substring(0, 16).toUpperCase(),
                 order.getAmount(), order.getCurrency());
         invoice.markPaid();
-        invoices.save(invoice);
+        invoicesRepository.save(invoice);
     }
 
     private String createRazorpayOrder(BillingOrder order, SubscriptionPlan plan) {
