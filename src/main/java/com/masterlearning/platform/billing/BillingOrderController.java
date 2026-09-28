@@ -16,6 +16,11 @@ public class BillingOrderController {
         this.service = service;
     }
 
+    @GetMapping("/invoices")
+    public ApiResponse<java.util.List<BillingInvoice>> invoices() {
+        return ApiResponse.success("Invoices loaded", service.invoices(SecurityUtils.getCurrentUserId()));
+    }
+
     @PostMapping("/orders")
     public ApiResponse<BillingOrderResponse> createOrder(@RequestBody CreateBillingOrderRequest request) {
         return ApiResponse.success(
