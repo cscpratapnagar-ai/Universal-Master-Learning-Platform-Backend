@@ -26,6 +26,7 @@ public class BillingInvoice {
         this.amount=amount; this.currency=currency; this.status="ISSUED"; this.issuedAt=LocalDateTime.now(); this.createdAt=this.issuedAt;
     }
     public void markPaid(){status="PAID";paidAt=LocalDateTime.now();}
+    public void markRefunded(){status="REFUNDED";}
     public UUID getId(){return id;} public UUID getOrderId(){return orderId;} public UUID getUserId(){return userId;}
     public String getInvoiceNumber(){return invoiceNumber;} public BigDecimal getAmount(){return amount;}
     public String getCurrency(){return currency;} public String getStatus(){return status;} public LocalDateTime getIssuedAt(){return issuedAt;}
