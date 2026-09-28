@@ -32,3 +32,9 @@ management:
     web:
       exposure:
         include: health,info
+app:
+  ai:
+    openai:
+      base-url: https://api.openai.com/v1
+      api-key: ${OPENAI_API_KEY:}
+      model: ${OPENAI_AI_TEACHER_MODEL:gpt-5.6-luna}
