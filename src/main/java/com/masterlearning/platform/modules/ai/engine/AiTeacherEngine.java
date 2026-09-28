@@ -9,7 +9,15 @@ import java.util.Locale;
 @Component
 public class AiTeacherEngine {
 
+    private final AiTeacherLlmClient llmClient;
+
+    public AiTeacherEngine(AiTeacherLlmClient llmClient) {
+        this.llmClient = llmClient;
+    }
+
     public AiTeacherTurnResponse teach(AiTeacherTurnRequest request) {
+        var llmResponse = llmClient.teach(request);
+        if (llmResponse.isPresent()) return llmResponse.get();
         String topic = safe(request == null ? null : request.topic(), "today's topic");
         String language = safe(request == null ? null : request.language(), "EN").toUpperCase(Locale.ROOT);
         String phase = safe(request == null ? null : request.phase(), "INTRO").toUpperCase(Locale.ROOT);
