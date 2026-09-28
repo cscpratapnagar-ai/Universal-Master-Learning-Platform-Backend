@@ -36,4 +36,5 @@ public class BillingOrder {
     public void markPaid(){status="PAID";updatedAt=LocalDateTime.now();}
     public void markFailed(){status="FAILED";updatedAt=LocalDateTime.now();}
     public void cancel(){status="CANCELLED";updatedAt=LocalDateTime.now();}
+    public void refund(){status="REFUNDED";updatedAt=LocalDateTime.now();}
 }
