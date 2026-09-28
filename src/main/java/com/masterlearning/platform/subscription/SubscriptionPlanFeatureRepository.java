@@ -6,4 +6,5 @@ import java.util.UUID;
 
 public interface SubscriptionPlanFeatureRepository extends JpaRepository<SubscriptionPlanFeature, UUID> {
     List<SubscriptionPlanFeature> findByPlanIdIn(List<UUID> planIds);
+    List<SubscriptionPlanFeature> findByPlanId(UUID planId);
 }
