@@ -107,8 +107,9 @@ public class BillingOrderService {
             if (!"order.paid".equals(event) && !"payment.captured".equals(event)) {
                 return;
             }
-            String eventId = root.path("payload").path("payment").path("entity").path("id").asText();
-            if (eventId.isBlank()) eventId = root.path("id").asText();
+            String resolvedEventId = root.path("payload").path("payment").path("entity").path("id").asText();
+            if (resolvedEventId.isBlank()) resolvedEventId = root.path("id").asText();
+            final String eventId = resolvedEventId;
             if (eventId.isBlank()) throw new IllegalArgumentException("Razorpay webhook event id is missing");
             String payloadHash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                     .digest(rawBody.getBytes(StandardCharsets.UTF_8)));
