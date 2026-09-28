@@ -5,5 +5,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface BillingPaymentRepository extends JpaRepository<BillingPayment, UUID> {
+    Optional<BillingPayment> findByOrderId(UUID orderId);
     Optional<BillingPayment> findByProviderAndProviderPaymentId(String provider, String providerPaymentId);
 }
