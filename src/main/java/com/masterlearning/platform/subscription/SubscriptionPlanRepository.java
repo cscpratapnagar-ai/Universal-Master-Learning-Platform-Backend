@@ -13,4 +13,7 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
     List<SubscriptionPlan> findActivePlans();
 
     java.util.Optional<SubscriptionPlan> findByCode(String code);
+
+    @Query("select p from SubscriptionPlan p order by p.monthlyPrice asc")
+    List<SubscriptionPlan> findAllPlans();
 }
