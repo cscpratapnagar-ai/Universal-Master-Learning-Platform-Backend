@@ -19,7 +19,7 @@ public class SubscriptionLifecycleService {
         this.notifications = notifications;
     }
 
-    @Scheduled(cron = "0 15 0 * * *")
+    @Scheduled(cron = "0 15 0 * * *", zone = "Asia/Kolkata")
     @Transactional
     public void expireSubscriptions() {
         LocalDate today = LocalDate.now();
