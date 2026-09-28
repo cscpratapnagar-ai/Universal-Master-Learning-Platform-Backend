@@ -6,5 +6,6 @@ import java.util.UUID;
 
 public interface BillingOrderRepository extends JpaRepository<BillingOrder, UUID> {
     List<BillingOrder> findTop20ByUserIdOrderByCreatedAtDesc(UUID userId);
+    List<BillingOrder> findTop100ByOrderByCreatedAtDesc();
     java.util.Optional<BillingOrder> findByExternalOrderId(String externalOrderId);
 }
