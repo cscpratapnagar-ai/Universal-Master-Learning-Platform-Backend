@@ -72,6 +72,17 @@ public class UserSubscriptionService {
         return subscriptions.save(subscription);
     }
 
+    @Transactional
+    public UserSubscriptionResponse cancel(UUID userId) {
+        var subscription = subscriptions.findCurrentByUserId(userId)
+                .orElseThrow(() -> new IllegalStateException("No current subscription found"));
+        if ("CANCELLED".equals(subscription.getStatus()) || "EXPIRED".equals(subscription.getStatus())) {
+            return toResponse(subscription);
+        }
+        subscription.cancel();
+        return toResponse(subscriptions.save(subscription));
+    }
+
     private UserSubscriptionResponse toResponse(UserSubscription subscription) {
         var plan = plans.findById(subscription.getPlanId())
                 .orElseThrow(() -> new IllegalStateException("Subscription plan not found"));
