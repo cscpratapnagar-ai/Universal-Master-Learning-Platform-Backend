@@ -22,7 +22,8 @@ public class AiTeacherEntitlementService {
             UserRepository users,
             @Value("${app.ai.teacher.quota.free-monthly-turns:25}") int freeMonthlyTurns,
             @Value("${app.ai.teacher.quota.premium-monthly-turns:500}") int premiumMonthlyTurns,
-            @Value("${app.ai.teacher.quota.pro-monthly-turns:2000}") int proMonthlyTurns) {
+            @Value("${app.ai.teacher.quota.pro-monthly-turns:2000}") int proMonthlyTurns,
+            @Value("${app.ai.teacher.quota.enterprise-monthly-turns:10000}") int enterpriseMonthlyTurns) {
         this.users = users;
         this.freeMonthlyTurns = freeMonthlyTurns;
         this.premiumMonthlyTurns = premiumMonthlyTurns;
