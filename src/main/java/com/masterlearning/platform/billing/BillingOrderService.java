@@ -50,6 +50,10 @@ public class BillingOrderService {
         String cycle = request.billingCycle() == null ? "MONTHLY" : request.billingCycle().trim().toUpperCase();
         if (!cycle.equals("MONTHLY") && !cycle.equals("YEARLY")) throw new IllegalArgumentException("Billing cycle must be MONTHLY or YEARLY");
         BigDecimal amount = cycle.equals("YEARLY") ? plan.getYearlyPrice() : plan.getMonthlyPrice();
+        subscriptions.current(userId); // resolve current subscription before creating a gateway order
+        if (subscriptions.hasCurrentPaidSubscription(userId)) {
+            throw new IllegalStateException("User already has a current paid subscription");
+        }
         if (amount.signum() <= 0) throw new IllegalArgumentException("Use the free-plan registration flow for a zero-price plan");
 
         var order = orders.save(new BillingOrder(UUID.randomUUID(), userId, plan.getId(), cycle, amount, plan.getCurrency()));
@@ -65,6 +69,7 @@ public class BillingOrderService {
     public void verifyPayment(UUID userId, String internalOrderId, String razorpayOrderId, String razorpayPaymentId, String razorpaySignature) {
         var order = orders.findById(UUID.fromString(internalOrderId)).orElseThrow(() -> new IllegalArgumentException("Billing order not found"));
         if (!order.getUserId().equals(userId)) throw new SecurityException("Billing order does not belong to current user");
+        if ("PAID".equals(order.getStatus())) return;
         if (!razorpayOrderId.equals(order.getExternalOrderId())) throw new SecurityException("Gateway order mismatch");
         String expected = hmacHex(order.getExternalOrderId() + "|" + razorpayPaymentId, keySecret);
         if (razorpaySignature == null || !java.security.MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), razorpaySignature.getBytes(StandardCharsets.UTF_8)))
