@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPlan, UUID> {
     @Query("select p from SubscriptionPlan p where p.active = true order by p.monthlyPrice asc")
     List<SubscriptionPlan> findActivePlans();
+
+    java.util.Optional<SubscriptionPlan> findByCode(String code);
 }
