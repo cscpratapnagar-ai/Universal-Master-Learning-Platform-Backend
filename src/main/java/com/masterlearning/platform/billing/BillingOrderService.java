@@ -50,6 +50,20 @@ public class BillingOrderService {
         return invoicesRepository.findTop50ByUserIdOrderByIssuedAtDesc(userId);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<BillingOrderSummary> orders(UUID userId) {
+        return orders.findTop20ByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(BillingOrderSummary::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<BillingOrderSummary> allOrders() {
+        return orders.findTop100ByOrderByCreatedAtDesc().stream()
+                .map(BillingOrderSummary::from)
+                .toList();
+    }
+
     @Transactional
     public BillingOrderResponse create(UUID userId, CreateBillingOrderRequest request) {
         if (request == null || request.planCode() == null || request.planCode().isBlank()) throw new IllegalArgumentException("Plan code is required");
