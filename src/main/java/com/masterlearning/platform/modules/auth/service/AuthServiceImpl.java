@@ -18,6 +18,8 @@ import com.masterlearning.platform.modules.user.entity.User;
 import com.masterlearning.platform.modules.user.mapper.UserMapper;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.security.jwt.JwtService;
+import com.masterlearning.platform.common.notification.EmailService;
+import com.masterlearning.platform.notification.NotificationService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +44,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final UserMapper userMapper;
+    private final EmailService emailService;
+    private final NotificationService notificationService;
 
     public AuthServiceImpl(
             UserRepository userRepository,
@@ -51,7 +55,9 @@ public class AuthServiceImpl implements AuthService {
             PasswordResetTokenRepository passwordResetTokenRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            UserMapper userMapper
+            UserMapper userMapper,
+            EmailService emailService,
+            NotificationService notificationService
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -61,6 +67,8 @@ public class AuthServiceImpl implements AuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.userMapper = userMapper;
+        this.emailService = emailService;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -87,6 +95,9 @@ public class AuthServiceImpl implements AuthService {
         if (!requestedRole.isBlank() && !requestedRole.equals("LEARNER")) {
             roleRequestRepository.save(new RoleRequest(saved, requestedRole, "Requested during signup"));
         }
+        notificationService.create(saved.getId(), "WELCOME", "Welcome to Master Learning",
+                "Your account is ready. Start your learning journey.", "/learner");
+        try { emailService.sendWelcome(saved.getEmail(), saved.getFirstName()); } catch (RuntimeException ignored) { }
         return issueTokens(saved);
     }
 
@@ -134,7 +145,9 @@ public class AuthServiceImpl implements AuthService {
             passwordResetTokenRepository.deleteByUser_Id(user.getId());
             String rawToken = UUID.randomUUID() + "-" + UUID.randomUUID();
             passwordResetTokenRepository.save(new PasswordResetToken(hash(rawToken), user, Instant.now().plusSeconds(15 * 60)));
-            // TODO: Email provider will deliver the raw token. Never persist or log it in production.
+            notificationService.create(user.getId(), "PASSWORD_RESET_REQUESTED", "Password reset requested",
+                    "A password reset link has been requested for your account. Check your email.", "/auth/reset-password");
+            try { emailService.sendPasswordReset(user.getEmail(), user.getFirstName(), rawToken); } catch (RuntimeException ignored) { }
         });
     }
 
@@ -152,6 +165,8 @@ public class AuthServiceImpl implements AuthService {
         User user = token.getUser();
         user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
         refreshTokenRepository.deleteByUser_Id(user.getId());
+        notificationService.create(user.getId(), "PASSWORD_RESET_COMPLETED", "Password updated",
+                "Your password was changed successfully. Please sign in again.", "/auth/login");
     }
 
     private AuthResponse issueTokens(User user) {
