@@ -48,4 +48,14 @@ public class SubscriptionPlan {
     public BigDecimal getYearlyPrice(){ return yearlyPrice; }
     public String getCurrency(){ return currency; }
     public boolean isActive(){ return active; }
+
+    public void update(String name, String description, BigDecimal monthlyPrice, BigDecimal yearlyPrice, String currency, Boolean active) {
+        if (name != null && !name.isBlank()) this.name = name.trim();
+        if (description != null) this.description = description.trim();
+        if (monthlyPrice != null) this.monthlyPrice = monthlyPrice;
+        if (yearlyPrice != null) this.yearlyPrice = yearlyPrice;
+        if (currency != null && !currency.isBlank()) this.currency = currency.trim().toUpperCase();
+        if (active != null) this.active = active;
+        this.updatedAt = LocalDateTime.now();
+    }
 }
