@@ -5,15 +5,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.UUID;
+import com.masterlearning.platform.notification.NotificationService;
 
 @Service
 public class UserSubscriptionService {
     private final UserSubscriptionRepository subscriptions;
     private final SubscriptionPlanRepository plans;
+    private final NotificationService notifications;
 
-    public UserSubscriptionService(UserSubscriptionRepository subscriptions, SubscriptionPlanRepository plans) {
+    public UserSubscriptionService(UserSubscriptionRepository subscriptions, SubscriptionPlanRepository plans, NotificationService notifications) {
         this.subscriptions = subscriptions;
         this.plans = plans;
+        this.notifications = notifications;
     }
 
     @Transactional(readOnly = true)
@@ -69,7 +72,11 @@ public class UserSubscriptionService {
             throw new IllegalStateException("Pending subscription does not match paid plan");
         }
         subscription.activate(start, end, null, externalSubscriptionId);
-        return subscriptions.save(subscription);
+        var saved = subscriptions.save(subscription);
+        notifications.create(userId, "SUBSCRIPTION_ACTIVATED", "Subscription activated",
+                "Your " + plan.getName() + " subscription is now active until " + end + ".",
+                "/learner/billing");
+        return saved;
     }
 
     @Transactional
@@ -80,7 +87,11 @@ public class UserSubscriptionService {
             return toResponse(subscription);
         }
         subscription.cancel();
-        return toResponse(subscriptions.save(subscription));
+        var saved = subscriptions.save(subscription);
+        notifications.create(userId, "SUBSCRIPTION_CANCELLED", "Subscription cancelled",
+                "Your " + plans.findById(subscription.getPlanId()).map(SubscriptionPlan::getName).orElse("subscription") + " subscription has been cancelled.",
+                "/learner/billing");
+        return toResponse(saved);
     }
 
     private UserSubscriptionResponse toResponse(UserSubscription subscription) {
