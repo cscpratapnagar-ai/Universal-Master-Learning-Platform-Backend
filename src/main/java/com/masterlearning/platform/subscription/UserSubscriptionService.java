@@ -6,17 +6,20 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.UUID;
 import com.masterlearning.platform.notification.NotificationService;
+import com.masterlearning.platform.audit.AuditLogService;
 
 @Service
 public class UserSubscriptionService {
     private final UserSubscriptionRepository subscriptions;
     private final SubscriptionPlanRepository plans;
     private final NotificationService notifications;
+    private final AuditLogService audit;
 
-    public UserSubscriptionService(UserSubscriptionRepository subscriptions, SubscriptionPlanRepository plans, NotificationService notifications) {
+    public UserSubscriptionService(UserSubscriptionRepository subscriptions, SubscriptionPlanRepository plans, NotificationService notifications, AuditLogService audit) {
         this.subscriptions = subscriptions;
         this.plans = plans;
         this.notifications = notifications;
+        this.audit = audit;
     }
 
     @Transactional(readOnly = true)
@@ -90,6 +93,7 @@ public class UserSubscriptionService {
         }
         subscription.cancel();
         var saved = subscriptions.save(subscription);
+        audit.success(userId, "SUBSCRIPTION_REFUND_ACCESS_END", "SUBSCRIPTION", subscription.getId().toString(), "Paid access ended after full refund");
         notifications.create(userId, "SUBSCRIPTION_REFUNDED", "Subscription ended after refund",
                 "Your paid subscription was ended because the payment was fully refunded.",
                 "/learner/billing");
@@ -105,6 +109,7 @@ public class UserSubscriptionService {
         }
         subscription.cancel();
         var saved = subscriptions.save(subscription);
+        audit.success(userId, "SUBSCRIPTION_CANCEL", "SUBSCRIPTION", subscription.getId().toString(), "Subscription cancelled by user");
         notifications.create(userId, "SUBSCRIPTION_CANCELLED", "Subscription cancelled",
                 "Your " + plans.findById(subscription.getPlanId()).map(SubscriptionPlan::getName).orElse("subscription") + " subscription has been cancelled.",
                 "/learner/billing");
