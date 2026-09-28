@@ -7,4 +7,5 @@ import java.util.UUID;
 public interface BillingInvoiceRepository extends JpaRepository<BillingInvoice, UUID> {
     List<BillingInvoice> findTop50ByUserIdOrderByIssuedAtDesc(UUID userId);
     boolean existsByOrderId(UUID orderId);
+    java.util.Optional<BillingInvoice> findByOrderId(UUID orderId);
 }
