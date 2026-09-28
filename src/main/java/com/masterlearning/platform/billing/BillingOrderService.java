@@ -179,7 +179,8 @@ public class BillingOrderService {
             webhookEvent.processed();
             webhookEvents.save(webhookEvent);
         } catch (Exception ex) {
-            if (ex instanceof SecurityException || ex instanceof IllegalArgumentException) throw ex;
+            if (ex instanceof SecurityException securityException) throw securityException;
+            if (ex instanceof IllegalArgumentException illegalArgumentException) throw illegalArgumentException;
             throw new IllegalStateException("Unable to process Razorpay webhook", ex);
         }
     }
