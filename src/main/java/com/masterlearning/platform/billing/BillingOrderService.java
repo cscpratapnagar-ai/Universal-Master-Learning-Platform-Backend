@@ -28,15 +28,17 @@ public class BillingOrderService {
     private final ObjectMapper mapper;
     private final String keyId;
     private final String keySecret;
+    private final String webhookSecret;
     private final RestClient razorpay;
 
     public BillingOrderService(BillingOrderRepository orders, BillingPaymentRepository payments,
             SubscriptionPlanRepository plans, UserSubscriptionService subscriptions, ObjectMapper mapper,
             @Value("${app.payment.razorpay.key-id:}") String keyId,
             @Value("${app.payment.razorpay.key-secret:}") String keySecret,
+            @Value("${app.payment.razorpay.webhook-secret:}") String webhookSecret,
             @Value("${app.payment.razorpay.base-url:https://api.razorpay.com/v1}") String baseUrl) {
         this.orders = orders; this.payments = payments; this.plans = plans; this.subscriptions = subscriptions;
-        this.mapper = mapper; this.keyId = keyId == null ? "" : keyId.trim(); this.keySecret = keySecret == null ? "" : keySecret.trim();
+        this.mapper = mapper; this.keyId = keyId == null ? "" : keyId.trim(); this.keySecret = keySecret == null ? "" : keySecret.trim(); this.webhookSecret = webhookSecret == null ? "" : webhookSecret.trim();
         this.razorpay = RestClient.builder().baseUrl(baseUrl).build();
     }
 
@@ -75,6 +77,63 @@ public class BillingOrderService {
         var end = order.getBillingCycle().equals("YEARLY") ? start.plusYears(1).minusDays(1) : start.plusMonths(1).minusDays(1);
         var plan = plans.findById(order.getPlanId()).orElseThrow(() -> new IllegalStateException("Subscription plan not found"));
         subscriptions.activatePending(userId, plan.getCode(), order.getBillingCycle(), start, end, razorpayPaymentId);
+    }
+
+    @Transactional
+    public void handleRazorpayWebhook(String rawBody, String signature) {
+        String expected = hmacHex(rawBody, webhookSecret);
+        if (signature == null || !java.security.MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                signature.getBytes(StandardCharsets.UTF_8))) {
+            throw new SecurityException("Invalid Razorpay webhook signature");
+        }
+
+        try {
+            JsonNode root = mapper.readTree(rawBody);
+            String event = root.path("event").asText();
+            if (!"order.paid".equals(event) && !"payment.captured".equals(event)) {
+                return;
+            }
+
+            JsonNode paymentEntity = root.path("payload").path("payment").path("entity");
+            String paymentId = paymentEntity.path("id").asText();
+            String gatewayOrderId = paymentEntity.path("order_id").asText();
+
+            if (gatewayOrderId.isBlank()) {
+                gatewayOrderId = root.path("payload").path("order").path("entity").path("id").asText();
+            }
+
+            var order = orders.findByExternalOrderId(gatewayOrderId)
+                    .orElseThrow(() -> new IllegalArgumentException("Billing order not found for Razorpay order"));
+
+            if ("PAID".equals(order.getStatus())) {
+                return;
+            }
+
+            var payment = payments.findAll().stream()
+                    .filter(item -> item.getOrderId().equals(order.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("Payment record not found"));
+
+            payment.capture(paymentId);
+            payments.save(payment);
+            order.markPaid();
+            orders.save(order);
+
+            var start = LocalDate.now();
+            var end = order.getBillingCycle().equals("YEARLY")
+                    ? start.plusYears(1).minusDays(1)
+                    : start.plusMonths(1).minusDays(1);
+            var plan = plans.findById(order.getPlanId())
+                    .orElseThrow(() -> new IllegalStateException("Subscription plan not found"));
+
+            subscriptions.activatePending(
+                    order.getUserId(), plan.getCode(), order.getBillingCycle(), start, end, paymentId
+            );
+        } catch (Exception ex) {
+            if (ex instanceof SecurityException || ex instanceof IllegalArgumentException) throw ex;
+            throw new IllegalStateException("Unable to process Razorpay webhook", ex);
+        }
     }
 
     private String createRazorpayOrder(BillingOrder order, SubscriptionPlan plan) {
