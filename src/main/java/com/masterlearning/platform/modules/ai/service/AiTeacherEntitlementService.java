@@ -16,6 +16,7 @@ public class AiTeacherEntitlementService {
     private final int freeMonthlyTurns;
     private final int premiumMonthlyTurns;
     private final int proMonthlyTurns;
+    private final int enterpriseMonthlyTurns;
 
     public AiTeacherEntitlementService(
             UserRepository users,
@@ -26,6 +27,7 @@ public class AiTeacherEntitlementService {
         this.freeMonthlyTurns = freeMonthlyTurns;
         this.premiumMonthlyTurns = premiumMonthlyTurns;
         this.proMonthlyTurns = proMonthlyTurns;
+        this.enterpriseMonthlyTurns = enterpriseMonthlyTurns;
     }
 
     public Entitlement getEntitlement(UUID userId) {
@@ -37,7 +39,7 @@ public class AiTeacherEntitlementService {
                 .collect(java.util.stream.Collectors.toSet());
 
         if (containsAny(roles, "SUPER_ADMIN", "ENTERPRISE", "AI_TEACHER_ENTERPRISE")) {
-            return new Entitlement("ENTERPRISE", -1);
+            return new Entitlement("ENTERPRISE", enterpriseMonthlyTurns);
         }
         if (containsAny(roles, "PRO", "AI_TEACHER_PRO")) {
             return new Entitlement("PRO", proMonthlyTurns);
