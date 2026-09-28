@@ -32,7 +32,7 @@ public class BillingOrderService {
     private final String webhookSecret;
     private final RestClient razorpay;
 
-    public BillingOrderService(BillingOrderRepository orders, BillingPaymentRepository payments,
+    public BillingOrderService(BillingOrderRepository orders, BillingPaymentRepository payments, BillingInvoiceRepository invoices,
             SubscriptionPlanRepository plans, UserSubscriptionService subscriptions, ObjectMapper mapper,
             @Value("${app.payment.razorpay.key-id:}") String keyId,
             @Value("${app.payment.razorpay.key-secret:}") String keySecret,
@@ -145,14 +145,12 @@ public class BillingOrderService {
 
     private void issueInvoice(BillingOrder order) {
         if (invoices.existsByOrderId(order.getId())) return;
-        invoices.save(new BillingInvoice(
-                UUID.randomUUID(),
-                order.getId(),
-                order.getUserId(),
+        var invoice = new BillingInvoice(
+                UUID.randomUUID(), order.getId(), order.getUserId(),
                 "MLS-" + order.getId().toString().replace("-", "").substring(0, 16).toUpperCase(),
-                order.getAmount(),
-                order.getCurrency()
-        ));
+                order.getAmount(), order.getCurrency());
+        invoice.markPaid();
+        invoices.save(invoice);
     }
 
     private String createRazorpayOrder(BillingOrder order, SubscriptionPlan plan) {
