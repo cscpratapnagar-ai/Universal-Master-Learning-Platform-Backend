@@ -4,6 +4,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
+import com.masterlearning.platform.common.api.ApiResponse;
 
 @RestController
 @RequestMapping("/api/v1/public/subscription-plans")
@@ -15,7 +16,7 @@ public class SubscriptionPlanController {
     }
 
     @GetMapping
-    public List<SubscriptionPlanResponse> getActivePlans() {
-        return service.activePlans();
+    public ApiResponse<List<SubscriptionPlanResponse>> getActivePlans() {
+        return ApiResponse.success("Subscription plans loaded", service.activePlans());
     }
 }
