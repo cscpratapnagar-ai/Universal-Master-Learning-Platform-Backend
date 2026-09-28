@@ -23,6 +23,7 @@ import java.util.UUID;
 public class BillingOrderService {
     private final BillingOrderRepository orders;
     private final BillingPaymentRepository payments;
+    private final BillingInvoiceRepository invoices;
     private final SubscriptionPlanRepository plans;
     private final UserSubscriptionService subscriptions;
     private final ObjectMapper mapper;
@@ -37,7 +38,7 @@ public class BillingOrderService {
             @Value("${app.payment.razorpay.key-secret:}") String keySecret,
             @Value("${app.payment.razorpay.webhook-secret:}") String webhookSecret,
             @Value("${app.payment.razorpay.base-url:https://api.razorpay.com/v1}") String baseUrl) {
-        this.orders = orders; this.payments = payments; this.plans = plans; this.subscriptions = subscriptions;
+        this.orders = orders; this.payments = payments; this.invoices = invoices; this.plans = plans; this.subscriptions = subscriptions;
         this.mapper = mapper; this.keyId = keyId == null ? "" : keyId.trim(); this.keySecret = keySecret == null ? "" : keySecret.trim(); this.webhookSecret = webhookSecret == null ? "" : webhookSecret.trim();
         this.razorpay = RestClient.builder().baseUrl(baseUrl).build();
     }
@@ -77,6 +78,7 @@ public class BillingOrderService {
         var payment = payments.findAll().stream().filter(item -> item.getOrderId().equals(order.getId())).findFirst()
                 .orElseThrow(() -> new IllegalStateException("Payment record not found"));
         payment.capture(razorpayPaymentId); payments.save(payment); order.markPaid(); orders.save(order);
+        issueInvoice(order);
         var start = LocalDate.now();
         var end = order.getBillingCycle().equals("YEARLY") ? start.plusYears(1).minusDays(1) : start.plusMonths(1).minusDays(1);
         var plan = plans.findById(order.getPlanId()).orElseThrow(() -> new IllegalStateException("Subscription plan not found"));
@@ -123,6 +125,7 @@ public class BillingOrderService {
             payments.save(payment);
             order.markPaid();
             orders.save(order);
+            issueInvoice(order);
 
             var start = LocalDate.now();
             var end = order.getBillingCycle().equals("YEARLY")
@@ -138,6 +141,18 @@ public class BillingOrderService {
             if (ex instanceof SecurityException || ex instanceof IllegalArgumentException) throw ex;
             throw new IllegalStateException("Unable to process Razorpay webhook", ex);
         }
+    }
+
+    private void issueInvoice(BillingOrder order) {
+        if (invoices.existsByOrderId(order.getId())) return;
+        invoices.save(new BillingInvoice(
+                UUID.randomUUID(),
+                order.getId(),
+                order.getUserId(),
+                "MLS-" + order.getId().toString().replace("-", "").substring(0, 16).toUpperCase(),
+                order.getAmount(),
+                order.getCurrency()
+        ));
     }
 
     private String createRazorpayOrder(BillingOrder order, SubscriptionPlan plan) {
