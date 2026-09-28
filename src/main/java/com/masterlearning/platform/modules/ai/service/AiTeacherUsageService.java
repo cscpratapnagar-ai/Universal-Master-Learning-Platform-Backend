@@ -4,6 +4,7 @@ import com.masterlearning.platform.modules.ai.dto.response.AiTeacherQuotaRespons
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -23,7 +24,7 @@ public class AiTeacherUsageService {
         this.entitlements = entitlements;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public AiTeacherQuotaResponse consumeTurn(UUID userId) {
         var entitlement = entitlements.getEntitlement(userId);
         LocalDate periodStart = LocalDate.now(ZoneOffset.UTC).withDayOfMonth(1);
@@ -37,7 +38,7 @@ public class AiTeacherUsageService {
                 INSERT INTO ai_teacher_usage (
                     id, user_id, period_start, turn_count, created_at, updated_at
                 )
-                VALUES (gen_random_uuid(), ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 ON CONFLICT (user_id, period_start)
                 DO UPDATE SET
                     turn_count = ai_teacher_usage.turn_count + 1,
@@ -49,9 +50,10 @@ public class AiTeacherUsageService {
         List<Integer> rows = jdbc.query(
                 sql,
                 ps -> {
-                    ps.setObject(1, userId);
-                    ps.setObject(2, periodStart);
-                    ps.setInt(3, entitlement.monthlyLimit());
+                    ps.setObject(1, UUID.randomUUID());
+                    ps.setObject(2, userId);
+                    ps.setObject(3, periodStart);
+                    ps.setInt(4, entitlement.monthlyLimit());
                 },
                 (rs, rowNum) -> rs.getInt(1));
 
@@ -111,9 +113,10 @@ public class AiTeacherUsageService {
                 INSERT INTO ai_teacher_usage (
                     id, user_id, period_start, turn_count, created_at, updated_at
                 )
-                VALUES (gen_random_uuid(), ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 ON CONFLICT (user_id, period_start) DO NOTHING
                 """,
+                UUID.randomUUID(),
                 userId,
                 periodStart);
     }
