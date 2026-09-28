@@ -87,7 +87,7 @@ public class SubscriptionPlanService {
                         plan.getYearlyPrice(),
                         plan.getCurrency(),
                         plan.isActive(),
-                        grouped.getOrDefault(plan.getId(), Map.of())
+                        grouped.getOrDefault(plan.getId(), Map.<String, String>of())
                 ))
                 .toList();
     }
