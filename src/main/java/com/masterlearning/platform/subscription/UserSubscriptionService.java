@@ -53,6 +53,17 @@ public class UserSubscriptionService {
         ));
     }
 
+    @Transactional
+    public UserSubscription activatePending(UUID userId, String planCode, String billingCycle, LocalDate start, LocalDate end, String externalSubscriptionId) {
+        var subscription = subscriptions.findCurrentByUserId(userId).orElseGet(() -> createPending(userId, planCode, billingCycle));
+        var plan = plans.findByCode(planCode.toUpperCase()).orElseThrow(() -> new IllegalArgumentException("Subscription plan not found"));
+        if (!subscription.getPlanId().equals(plan.getId())) {
+            throw new IllegalStateException("Pending subscription does not match paid plan");
+        }
+        subscription.activate(start, end, null, externalSubscriptionId);
+        return subscriptions.save(subscription);
+    }
+
     private UserSubscriptionResponse toResponse(UserSubscription subscription) {
         var plan = plans.findById(subscription.getPlanId())
                 .orElseThrow(() -> new IllegalStateException("Subscription plan not found"));
