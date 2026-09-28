@@ -6,6 +6,7 @@ import com.masterlearning.platform.subscription.SubscriptionPlan;
 import com.masterlearning.platform.subscription.SubscriptionPlanFeature;
 import com.masterlearning.platform.subscription.SubscriptionPlanFeatureRepository;
 import com.masterlearning.platform.subscription.SubscriptionPlanRepository;
+import com.masterlearning.platform.subscription.UserSubscriptionRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.Locale;
@@ -21,11 +22,13 @@ public class AiTeacherEntitlementService {
     private final UserRepository users;
     private final SubscriptionPlanRepository plans;
     private final SubscriptionPlanFeatureRepository features;
+    private final UserSubscriptionRepository subscriptions;
 
     public AiTeacherEntitlementService(
             UserRepository users,
             SubscriptionPlanRepository plans,
-            SubscriptionPlanFeatureRepository features) {
+            SubscriptionPlanFeatureRepository features,
+            UserSubscriptionRepository subscriptions) {
         this.users = users;
         this.plans = plans;
         this.features = features;
@@ -39,7 +42,12 @@ public class AiTeacherEntitlementService {
                 .map(role -> role.getCode() == null ? "" : role.getCode().toUpperCase(Locale.ROOT))
                 .collect(Collectors.toSet());
 
-        String planCode = resolvePlanCode(roles);
+        String planCode = subscriptions.findCurrentByUserId(userId)
+                .filter(subscription -> "ACTIVE".equalsIgnoreCase(subscription.getStatus()))
+                .filter(subscription -> !subscription.getCurrentPeriodEnd().isBefore(java.time.LocalDate.now()))
+                .flatMap(subscription -> plans.findById(subscription.getPlanId()))
+                .map(SubscriptionPlan::getCode)
+                .orElseGet(() -> resolvePlanCode(roles));
         SubscriptionPlan plan = plans.findByCode(planCode)
                 .orElseGet(() -> plans.findByCode("FREE")
                         .orElseThrow(() -> new IllegalStateException("FREE subscription plan is not configured")));
