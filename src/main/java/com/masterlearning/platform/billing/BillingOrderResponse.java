@@ -11,5 +11,7 @@ public record BillingOrderResponse(
         BigDecimal amount,
         String currency,
         String status,
-        String paymentProvider
+        String paymentProvider,
+        String gatewayOrderId,
+        String gatewayKeyId
 ) {}
