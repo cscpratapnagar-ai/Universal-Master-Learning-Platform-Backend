@@ -21,7 +21,7 @@ public class SubscriptionPlanController {
 
     @GetMapping
     public ApiResponse<List<SubscriptionPlanResponse>> getActivePlans() {
-        return ApiResponse.success("Subscription plans loaded", service.activePlans());
+        return ApiResponse.success("Subscription plans loaded", service.allPlans());
     }
 }
 
