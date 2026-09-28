@@ -39,6 +39,7 @@ app:
         free-monthly-turns: ${AI_TEACHER_FREE_MONTHLY_TURNS:25}
         premium-monthly-turns: ${AI_TEACHER_PREMIUM_MONTHLY_TURNS:500}
         pro-monthly-turns: ${AI_TEACHER_PRO_MONTHLY_TURNS:2000}
+        enterprise-monthly-turns: ${AI_TEACHER_ENTERPRISE_MONTHLY_TURNS:10000}
 
 management:
   endpoints:
