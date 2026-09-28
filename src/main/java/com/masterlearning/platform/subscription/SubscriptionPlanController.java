@@ -9,6 +9,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import com.masterlearning.platform.common.api.ApiResponse;
+import com.masterlearning.platform.audit.AuditLogService;
+import com.masterlearning.platform.security.util.SecurityUtils;
 
 @RestController
 @RequestMapping("/api/v1/public/subscription-plans")
@@ -21,7 +23,7 @@ public class SubscriptionPlanController {
 
     @GetMapping
     public ApiResponse<List<SubscriptionPlanResponse>> getActivePlans() {
-        return ApiResponse.success("Subscription plans loaded", service.allPlans());
+        return ApiResponse.success("Subscription plans loaded", service.activePlans());
     }
 }
 
@@ -30,9 +32,11 @@ public class SubscriptionPlanController {
 @PreAuthorize("hasRole('SUPER_ADMIN')")
 class SuperAdminSubscriptionPlanController {
     private final SubscriptionPlanService service;
+    private final AuditLogService audit;
 
-    SuperAdminSubscriptionPlanController(SubscriptionPlanService service) {
+    SuperAdminSubscriptionPlanController(SubscriptionPlanService service, AuditLogService audit) {
         this.service = service;
+        this.audit = audit;
     }
 
     @GetMapping
@@ -45,7 +49,15 @@ class SuperAdminSubscriptionPlanController {
         @PathVariable String code,
         @RequestBody SubscriptionPlanUpdateRequest request
     ) {
-        return ApiResponse.success("Subscription plan updated", service.updatePlan(code, request));
+        var actor = SecurityUtils.getCurrentUserId();
+        try {
+            var result = service.updatePlan(code, request);
+            audit.success(actor, "SUBSCRIPTION_PLAN_UPDATE", "SUBSCRIPTION_PLAN", code, "Plan catalog updated");
+            return ApiResponse.success("Subscription plan updated", result);
+        } catch (RuntimeException ex) {
+            audit.failure(actor, "SUBSCRIPTION_PLAN_UPDATE", "SUBSCRIPTION_PLAN", code, ex.getMessage());
+            throw ex;
+        }
     }
 }
 
