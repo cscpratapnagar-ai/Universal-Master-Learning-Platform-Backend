@@ -45,23 +45,8 @@ public class SubscriptionPlanService {
 
         if (request.features() != null) {
             features.deleteAll(features.findByPlanId(plan.getId()));
-            request.features().forEach((featureCode, featureValue) -> {
-                var feature = new SubscriptionPlanFeature();
-                try {
-                    var idField = SubscriptionPlanFeature.class.getDeclaredField("id");
-                    var planField = SubscriptionPlanFeature.class.getDeclaredField("planId");
-                    var codeField = SubscriptionPlanFeature.class.getDeclaredField("featureCode");
-                    var valueField = SubscriptionPlanFeature.class.getDeclaredField("featureValue");
-                    idField.setAccessible(true); planField.setAccessible(true); codeField.setAccessible(true); valueField.setAccessible(true);
-                    idField.set(feature, UUID.randomUUID());
-                    planField.set(feature, plan.getId());
-                    codeField.set(feature, featureCode);
-                    valueField.set(feature, featureValue);
-                } catch (ReflectiveOperationException ex) {
-                    throw new IllegalStateException("Unable to prepare plan feature", ex);
-                }
-                features.save(feature);
-            });
+            request.features().forEach((featureCode, featureValue) -> features.save(new SubscriptionPlanFeature(UUID.randomUUID(), plan.getId(), featureCode, featureValue)));
+
         }
         return activePlans().stream()
             .filter(item -> item.code().equalsIgnoreCase(plan.getCode()))
