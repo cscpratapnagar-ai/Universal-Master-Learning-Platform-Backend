@@ -65,18 +65,16 @@ public class SubscriptionPlanService {
     private List<SubscriptionPlanResponse> mapPlans(List<SubscriptionPlan> source) {
         var ids = source.stream().map(SubscriptionPlan::getId).toList();
         Map<UUID, Map<String, String>> grouped = new LinkedHashMap<>();
+
         if (!ids.isEmpty()) {
-            grouped.putAll(features.findByPlanIdIn(ids).stream()
-                    .collect(Collectors.groupingBy(
-                            SubscriptionPlanFeature::getPlanId,
-                            LinkedHashMap::new,
-                            Collectors.toMap(
-                                    SubscriptionPlanFeature::getFeatureCode,
-                                    f -> f.getFeatureValue() == null ? "" : f.getFeatureValue(),
-                                    (a, b) -> b,
-                                    LinkedHashMap::new
-                            )
-                    )));
+            for (SubscriptionPlanFeature feature : features.findByPlanIdIn(ids)) {
+                Map<String, String> planFeatures =
+                        grouped.computeIfAbsent(feature.getPlanId(), ignored -> new LinkedHashMap<>());
+                planFeatures.put(
+                        feature.getFeatureCode(),
+                        feature.getFeatureValue() == null ? "" : feature.getFeatureValue()
+                );
+            }
         }
 
         return source.stream()
