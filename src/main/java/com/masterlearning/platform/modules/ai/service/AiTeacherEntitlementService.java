@@ -32,6 +32,7 @@ public class AiTeacherEntitlementService {
         this.users = users;
         this.plans = plans;
         this.features = features;
+        this.subscriptions = subscriptions;
     }
 
     public Entitlement getEntitlement(UUID userId) {
