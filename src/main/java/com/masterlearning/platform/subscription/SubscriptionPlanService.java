@@ -64,9 +64,9 @@ public class SubscriptionPlanService {
 
     private List<SubscriptionPlanResponse> mapPlans(List<SubscriptionPlan> source) {
         var ids = source.stream().map(SubscriptionPlan::getId).toList();
-        var grouped = ids.isEmpty()
-                ? Map.<UUID, Map<String, String>>of()
-                : features.findByPlanIdIn(ids).stream()
+        Map<UUID, Map<String, String>> grouped = new LinkedHashMap<>();
+        if (!ids.isEmpty()) {
+            grouped.putAll(features.findByPlanIdIn(ids).stream()
                     .collect(Collectors.groupingBy(
                             SubscriptionPlanFeature::getPlanId,
                             LinkedHashMap::new,
@@ -76,7 +76,8 @@ public class SubscriptionPlanService {
                                     (a, b) -> b,
                                     LinkedHashMap::new
                             )
-                    ));
+                    )));
+        }
 
         return source.stream()
                 .map(plan -> new SubscriptionPlanResponse(
