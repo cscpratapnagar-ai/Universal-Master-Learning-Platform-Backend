@@ -1,0 +1,3 @@
+package com.masterlearning.platform.modules.privateTeacher;
+import jakarta.validation.constraints.DecimalMin; import jakarta.validation.constraints.Size; import java.math.BigDecimal;
+public record PrivateTeacherProfileRequest(@Size(max=180) String headline,@Size(max=4000) String bio,@Size(max=2000) String subjects,@Size(max=1000) String teachingModes,@Size(max=1000) String languages,@DecimalMin("0.00") BigDecimal hourlyRate,@Size(min=3,max=3) String currency,boolean acceptingLearners){}
