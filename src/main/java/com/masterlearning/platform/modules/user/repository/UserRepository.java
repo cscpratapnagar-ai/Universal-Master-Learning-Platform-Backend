@@ -37,6 +37,20 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     long countByEnabledTrue();
 
+    @Query("""
+            select count(distinct u)
+            from User u join u.roles r
+            where upper(r.code) = upper(:roleCode)
+            """)
+    long countByRoleCode(@org.springframework.data.repository.query.Param("roleCode") String roleCode);
+
+    @Query("""
+            select count(distinct u)
+            from User u join u.roles r
+            where u.enabled = true and upper(r.code) = upper(:roleCode)
+            """)
+    long countEnabledByRoleCode(@org.springframework.data.repository.query.Param("roleCode") String roleCode);
+
     long countByCreatedAtAfter(Instant createdAt);
 
     @Query("""
