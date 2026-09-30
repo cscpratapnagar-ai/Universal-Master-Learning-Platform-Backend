@@ -1,0 +1,3 @@
+package com.masterlearning.platform.modules.privateTeacher;
+import jakarta.validation.constraints.NotNull; import jakarta.validation.constraints.Size; import java.time.Instant; import java.util.UUID;
+public record PrivateTeacherSessionRequest(@NotNull UUID teacherId,@NotNull Instant startsAt,@NotNull Instant endsAt,@Size(max=80) String timezone,@Size(max=500) String topic,@Size(max=3000) String notes){}
