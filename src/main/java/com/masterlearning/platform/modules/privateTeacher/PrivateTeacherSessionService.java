@@ -1,7 +1,13 @@
 package com.masterlearning.platform.modules.privateTeacher;
 import com.masterlearning.platform.modules.privateTeacher.entity.PrivateTeacherSession; import com.masterlearning.platform.modules.privateTeacher.repository.PrivateTeacherSessionRepository; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional; import java.time.Instant; import java.util.UUID;
+import java.util.List;
 @Service public class PrivateTeacherSessionService {
  private final PrivateTeacherSessionRepository sessions; public PrivateTeacherSessionService(PrivateTeacherSessionRepository s){sessions=s;}
+ @Transactional(readOnly=true) public List<PrivateTeacherSessionResponse> mine(UUID userId){
+  var teacher=sessions.findByTeacherIdOrderByStartsAtDesc(userId).stream().map(PrivateTeacherSessionResponse::from).toList();
+  var learner=sessions.findByLearnerIdOrderByStartsAtDesc(userId).stream().map(PrivateTeacherSessionResponse::from).toList();
+  return java.util.stream.Stream.concat(teacher.stream(),learner.stream()).distinct().sorted(java.util.Comparator.comparing(PrivateTeacherSessionResponse::startsAt).reversed()).toList();
+ }
  @Transactional public PrivateTeacherSessionResponse request(UUID learnerId,PrivateTeacherSessionRequest r){
   if(!r.endsAt().isAfter(r.startsAt())) throw new IllegalArgumentException("Session end must be after start");
   if(r.startsAt().isBefore(Instant.now())) throw new IllegalArgumentException("Session must start in the future");
