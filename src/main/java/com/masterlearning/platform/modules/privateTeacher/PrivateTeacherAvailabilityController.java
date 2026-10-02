@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/private-teacher/{teacherId}/availability")
-@PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMIN', 'ROLE_ADMIN', 'ROLE_ORG_ADMIN', 'ROLE_TEACHER', 'ROLE_INSTRUCTOR')")
+@PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMIN', 'ROLE_ADMIN', 'ROLE_ORG_ADMIN', 'ROLE_TEACHER', 'ROLE_INSTRUCTOR', 'ROLE_LEARNER', 'ROLE_STUDENT')")
 public class PrivateTeacherAvailabilityController {
     private final PrivateTeacherAvailabilityService service;
     private final UserRepository users;
