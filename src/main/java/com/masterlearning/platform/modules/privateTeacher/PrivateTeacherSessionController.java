@@ -38,6 +38,7 @@ public class PrivateTeacherSessionController {
  }
 
  @PostMapping("/request")
+ @PreAuthorize("hasAnyAuthority('ROLE_LEARNER','ROLE_STUDENT')")
  public ApiResponse<PrivateTeacherSessionResponse> request(@AuthenticationPrincipal UserDetails p,@Valid @RequestBody PrivateTeacherSessionRequest r){
   UUID learner=users.findByEmailIgnoreCase(p.getUsername()).orElseThrow().getId();
   return ApiResponse.success("Private teacher session requested",service.request(learner,r));
