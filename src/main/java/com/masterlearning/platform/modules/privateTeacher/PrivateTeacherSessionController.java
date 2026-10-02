@@ -23,6 +23,20 @@ public class PrivateTeacherSessionController {
   return ApiResponse.success("Private teacher sessions loaded",service.mine(user));
  }
 
+ @GetMapping("/teacher/mine")
+ @PreAuthorize("hasAnyAuthority('ROLE_TEACHER','ROLE_INSTRUCTOR')")
+ public ApiResponse<List<PrivateTeacherSessionResponse>> teacherMine(@AuthenticationPrincipal UserDetails p){
+  UUID user=users.findByEmailIgnoreCase(p.getUsername()).orElseThrow().getId();
+  return ApiResponse.success("Teacher private sessions loaded",service.teacherMine(user));
+ }
+
+ @GetMapping("/learner/mine")
+ @PreAuthorize("hasAnyAuthority('ROLE_LEARNER','ROLE_STUDENT')")
+ public ApiResponse<List<PrivateTeacherSessionResponse>> learnerMine(@AuthenticationPrincipal UserDetails p){
+  UUID user=users.findByEmailIgnoreCase(p.getUsername()).orElseThrow().getId();
+  return ApiResponse.success("Learner private sessions loaded",service.learnerMine(user));
+ }
+
  @PostMapping("/request")
  public ApiResponse<PrivateTeacherSessionResponse> request(@AuthenticationPrincipal UserDetails p,@Valid @RequestBody PrivateTeacherSessionRequest r){
   UUID learner=users.findByEmailIgnoreCase(p.getUsername()).orElseThrow().getId();
