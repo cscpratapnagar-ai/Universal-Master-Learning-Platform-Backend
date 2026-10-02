@@ -6,6 +6,7 @@ import com.masterlearning.platform.modules.ai.service.AiTeacherGovernanceService
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import com.masterlearning.platform.security.util.SecurityUtils;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -23,6 +24,6 @@ public class AiTeacherGovernanceController {
     public ApiResponse<AiTeacherGovernanceOverviewResponse> overview() {
         return ApiResponse.success(
                 "AI Teacher governance overview loaded",
-                governance.getOverview());
+                governance.getOverview(SecurityUtils.getCurrentUserId(), SecurityUtils.hasRole("SUPER_ADMIN")));
     }
 }
