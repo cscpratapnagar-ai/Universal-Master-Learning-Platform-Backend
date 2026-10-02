@@ -36,6 +36,7 @@ public class PrivateTeacherSessionService {
 
  @Transactional
  public PrivateTeacherSessionResponse request(UUID learnerId,PrivateTeacherSessionRequest r){
+  if(learnerId.equals(r.teacherId())) throw new IllegalArgumentException("Learner cannot book a session with themselves");
   if(!r.endsAt().isAfter(r.startsAt())) throw new IllegalArgumentException("Session end must be after start");
   if(r.startsAt().isBefore(Instant.now())) throw new IllegalArgumentException("Session must start in the future");
   if(sessions.countTeacherOverlap(r.teacherId(),r.startsAt(),r.endsAt())>0) throw new IllegalArgumentException("Teacher already has an overlapping session");
