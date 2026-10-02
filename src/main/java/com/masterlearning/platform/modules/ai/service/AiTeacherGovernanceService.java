@@ -33,7 +33,12 @@ public class AiTeacherGovernanceService {
                       SELECT 1 FROM organization_members om
                       WHERE om.user_id = ai_teacher_usage.user_id
                         AND om.active = TRUE
-                        AND om.user_id = ?
+                        AND EXISTS (
+                            SELECT 1 FROM organization_members scope
+                            WHERE scope.user_id = ?
+                              AND scope.active = TRUE
+                              AND scope.organization_id = om.organization_id
+                        )
                   ))
                 """,
                 Long.class,
@@ -48,7 +53,12 @@ public class AiTeacherGovernanceService {
                       SELECT 1 FROM organization_members om
                       WHERE om.user_id = ai_teacher_usage.user_id
                         AND om.active = TRUE
-                        AND om.user_id = ?
+                        AND EXISTS (
+                            SELECT 1 FROM organization_members scope
+                            WHERE scope.user_id = ?
+                              AND scope.active = TRUE
+                              AND scope.organization_id = om.organization_id
+                        )
                   ))
                 """,
                 Long.class,
