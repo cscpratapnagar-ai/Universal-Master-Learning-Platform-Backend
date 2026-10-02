@@ -5,6 +5,7 @@ import com.masterlearning.platform.modules.assessment.repository.AssessmentRepos
 import com.masterlearning.platform.modules.course.entity.Enrollment;
 import com.masterlearning.platform.modules.course.repository.CourseRepository;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
+import com.masterlearning.platform.modules.organization.repository.OrganizationMemberRepository;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,14 +24,17 @@ public class TeacherAnalyticsController {
 
     private final CourseRepository courses;
     private final EnrollmentRepository enrollments;
+    private final OrganizationMemberRepository organizationMembers;
     private final AssessmentRepository assessments;
 
     public TeacherAnalyticsController(CourseRepository courses,
                                       EnrollmentRepository enrollments,
-                                      AssessmentRepository assessments) {
+                                      AssessmentRepository assessments,
+                                      OrganizationMemberRepository organizationMembers) {
         this.courses = courses;
         this.enrollments = enrollments;
         this.assessments = assessments;
+        this.organizationMembers = organizationMembers;
     }
 
     @GetMapping("/analytics")
@@ -38,11 +42,21 @@ public class TeacherAnalyticsController {
     @Transactional(readOnly = true)
     public ApiResponse<Map<String, Object>> analytics() {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
-        boolean elevated = org.springframework.security.core.context.SecurityContextHolder.getContext()
-                .getAuthentication().getAuthorities().stream()
-                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()) || "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean superAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+        boolean admin = authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()) || "ROLE_ORG_ADMIN".equals(a.getAuthority()));
 
-        var teacherCourses = elevated ? courses.findAll() : courses.findByCreatedById(currentUserId);
+        var teacherCourses = superAdmin
+                ? courses.findAll()
+                : admin
+                    ? courses.findAll().stream()
+                        .filter(c -> c.getOrganization() != null
+                                && organizationMembers.existsByOrganizationIdAndUserId(
+                                        c.getOrganization().getId(), currentUserId))
+                        .toList()
+                    : courses.findByCreatedById(currentUserId);
         List<UUID> courseIds = teacherCourses.stream().map(c -> c.getId()).toList();
         List<Enrollment> learnerEnrollments = courseIds.isEmpty()
                 ? List.of()
