@@ -6,6 +6,7 @@ import com.masterlearning.platform.modules.course.entity.Enrollment;
 import com.masterlearning.platform.modules.course.repository.CourseRepository;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import com.masterlearning.platform.modules.organization.repository.OrganizationMemberRepository;
+import com.masterlearning.platform.modules.organization.security.OrganizationAuthorizationService;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,16 +26,19 @@ public class TeacherAnalyticsController {
     private final CourseRepository courses;
     private final EnrollmentRepository enrollments;
     private final OrganizationMemberRepository organizationMembers;
+    private final OrganizationAuthorizationService organizationAuthorization;
     private final AssessmentRepository assessments;
 
     public TeacherAnalyticsController(CourseRepository courses,
                                       EnrollmentRepository enrollments,
                                       AssessmentRepository assessments,
-                                      OrganizationMemberRepository organizationMembers) {
+                                      OrganizationMemberRepository organizationMembers,
+                                      OrganizationAuthorizationService organizationAuthorization) {
         this.courses = courses;
         this.enrollments = enrollments;
         this.assessments = assessments;
         this.organizationMembers = organizationMembers;
+        this.organizationAuthorization = organizationAuthorization;
     }
 
     @GetMapping("/analytics")
@@ -53,8 +57,7 @@ public class TeacherAnalyticsController {
                 : admin
                     ? courses.findAll().stream()
                         .filter(c -> c.getOrganization() != null
-                                && organizationMembers.existsByOrganizationIdAndUserId(
-                                        c.getOrganization().getId(), currentUserId))
+                                && organizationAuthorization.canAccessOrganization(c.getOrganization().getId()))
                         .toList()
                     : courses.findByCreatedById(currentUserId);
         List<UUID> courseIds = teacherCourses.stream().map(c -> c.getId()).toList();
