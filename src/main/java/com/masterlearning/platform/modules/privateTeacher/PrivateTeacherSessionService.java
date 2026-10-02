@@ -41,7 +41,11 @@ public class PrivateTeacherSessionService {
   if(r.startsAt().isBefore(Instant.now())) throw new IllegalArgumentException("Session must start in the future");
   if(sessions.countTeacherOverlap(r.teacherId(),r.startsAt(),r.endsAt())>0) throw new IllegalArgumentException("Teacher already has an overlapping session");
   validateAvailability(r.teacherId(),r.startsAt(),r.endsAt());
-  return PrivateTeacherSessionResponse.from(sessions.save(new PrivateTeacherSession(r.teacherId(),learnerId,r.startsAt(),r.endsAt(),r.timezone()==null?"UTC":r.timezone(),r.topic(),r.notes())));
+  try {
+   return PrivateTeacherSessionResponse.from(sessions.save(new PrivateTeacherSession(r.teacherId(),learnerId,r.startsAt(),r.endsAt(),r.timezone()==null?"UTC":r.timezone(),r.topic(),r.notes())));
+  } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+   throw new IllegalArgumentException("Teacher already has an overlapping session");
+  }
  }
 
  @Transactional
