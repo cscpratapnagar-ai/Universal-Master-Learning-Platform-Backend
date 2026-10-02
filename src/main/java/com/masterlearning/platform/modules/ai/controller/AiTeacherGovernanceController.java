@@ -7,6 +7,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import com.masterlearning.platform.security.util.SecurityUtils;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -24,6 +25,9 @@ public class AiTeacherGovernanceController {
     public ApiResponse<AiTeacherGovernanceOverviewResponse> overview() {
         return ApiResponse.success(
                 "AI Teacher governance overview loaded",
-                governance.getOverview(SecurityUtils.getCurrentUserId(), SecurityUtils.hasRole("SUPER_ADMIN")));
+                governance.getOverview(
+                        SecurityUtils.getCurrentUserId(),
+                        SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                                .anyMatch(a -> "ROLE_SUPER_ADMIN".equals(a.getAuthority()))));
     }
 }
