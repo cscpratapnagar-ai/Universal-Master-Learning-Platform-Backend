@@ -79,7 +79,10 @@ public class ProgramEnrollmentController {
  public ApiResponse<List<Map<String,Object>>> mineActivity(@PathVariable UUID programId){
    UUID uid=com.masterlearning.platform.security.util.SecurityUtils.getCurrentUserId();
    var e=enrollments.findByProgramIdAndUserId(programId,uid).orElseThrow(()->new AccessDeniedException("You are not enrolled in this program"));
-   return ApiResponse.success("Project learner activity retrieved",activities.findTop100ByProgramIdOrderByCreatedAtDesc(programId).stream().map(a->{Map<String,Object> x=new LinkedHashMap<>();x.put("id",a.getId());x.put("action",a.getAction());x.put("details",a.getDetails());x.put("actor",a.getActor());x.put("createdAt",a.getCreatedAt());return x;}).toList());
+   return ApiResponse.success("Project learner activity retrieved",
+       activities.findByProgramIdAndActorOrderByCreatedAtDesc(
+               programId, String.valueOf(uid), org.springframework.data.domain.PageRequest.of(0, 100))
+           .stream().map(a->{Map<String,Object> x=new LinkedHashMap<>();x.put("id",a.getId());x.put("action",a.getAction());x.put("details",a.getDetails());x.put("actor",a.getActor());x.put("createdAt",a.getCreatedAt());return x;}).toList());
  }
 
  @GetMapping("/mine/{programId}/workspace") @PreAuthorize("isAuthenticated()") @Transactional(readOnly=true)
