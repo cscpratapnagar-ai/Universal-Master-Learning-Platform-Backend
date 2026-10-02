@@ -21,9 +21,17 @@ public class PrivateTeacherSessionService {
 
  @Transactional(readOnly=true)
  public List<PrivateTeacherSessionResponse> mine(UUID userId){
-  var teacher=sessions.findByTeacherIdOrderByStartsAtDesc(userId).stream().map(PrivateTeacherSessionResponse::from).toList();
-  var learner=sessions.findByLearnerIdOrderByStartsAtDesc(userId).stream().map(PrivateTeacherSessionResponse::from).toList();
-  return java.util.stream.Stream.concat(teacher.stream(),learner.stream()).distinct().sorted(java.util.Comparator.comparing(PrivateTeacherSessionResponse::startsAt).reversed()).toList();
+  return java.util.stream.Stream.concat(teacherMine(userId).stream(),learnerMine(userId).stream()).distinct().sorted(java.util.Comparator.comparing(PrivateTeacherSessionResponse::startsAt).reversed()).toList();
+ }
+
+ @Transactional(readOnly=true)
+ public List<PrivateTeacherSessionResponse> teacherMine(UUID teacherId){
+  return sessions.findByTeacherIdOrderByStartsAtDesc(teacherId).stream().map(PrivateTeacherSessionResponse::from).toList();
+ }
+
+ @Transactional(readOnly=true)
+ public List<PrivateTeacherSessionResponse> learnerMine(UUID learnerId){
+  return sessions.findByLearnerIdOrderByStartsAtDesc(learnerId).stream().map(PrivateTeacherSessionResponse::from).toList();
  }
 
  @Transactional
