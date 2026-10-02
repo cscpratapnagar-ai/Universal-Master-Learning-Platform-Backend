@@ -5,6 +5,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
+
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 
@@ -18,7 +20,7 @@ public class AiTeacherGovernanceService {
     }
 
     @Transactional(readOnly = true)
-    public AiTeacherGovernanceOverviewResponse getOverview() {
+    public AiTeacherGovernanceOverviewResponse getOverview(UUID currentUserId, boolean superAdmin) {
         LocalDate periodStart = LocalDate.now(ZoneOffset.UTC).withDayOfMonth(1);
 
         Long activeUsers = jdbc.queryForObject(
@@ -27,18 +29,30 @@ public class AiTeacherGovernanceService {
                 FROM ai_teacher_usage
                 WHERE period_start = ?
                   AND turn_count > 0
+                  AND (? = TRUE OR EXISTS (
+                      SELECT 1 FROM organization_members om
+                      WHERE om.user_id = ai_teacher_usage.user_id
+                        AND om.active = TRUE
+                        AND om.user_id = ?
+                  ))
                 """,
                 Long.class,
-                periodStart);
+                periodStart, superAdmin, currentUserId);
 
         Long monthlyTurns = jdbc.queryForObject(
                 """
                 SELECT COALESCE(SUM(turn_count), 0)
                 FROM ai_teacher_usage
                 WHERE period_start = ?
+                  AND (? = TRUE OR EXISTS (
+                      SELECT 1 FROM organization_members om
+                      WHERE om.user_id = ai_teacher_usage.user_id
+                        AND om.active = TRUE
+                        AND om.user_id = ?
+                  ))
                 """,
                 Long.class,
-                periodStart);
+                periodStart, superAdmin, currentUserId);
 
         long users = activeUsers == null ? 0 : activeUsers;
         long turns = monthlyTurns == null ? 0 : monthlyTurns;
