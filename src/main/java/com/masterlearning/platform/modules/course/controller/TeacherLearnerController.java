@@ -4,6 +4,7 @@ import com.masterlearning.platform.common.api.ApiResponse;
 import com.masterlearning.platform.modules.course.entity.Enrollment;
 import com.masterlearning.platform.modules.course.repository.CourseRepository;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
+import com.masterlearning.platform.modules.organization.repository.OrganizationMemberRepository;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,10 +23,13 @@ public class TeacherLearnerController {
 
     private final CourseRepository courses;
     private final EnrollmentRepository enrollments;
+    private final OrganizationMemberRepository organizationMembers;
 
-    public TeacherLearnerController(CourseRepository courses, EnrollmentRepository enrollments) {
+    public TeacherLearnerController(CourseRepository courses, EnrollmentRepository enrollments,
+                                    OrganizationMemberRepository organizationMembers) {
         this.courses = courses;
         this.enrollments = enrollments;
+        this.organizationMembers = organizationMembers;
     }
 
     @GetMapping("/learners")
@@ -33,11 +37,21 @@ public class TeacherLearnerController {
     @Transactional(readOnly = true)
     public ApiResponse<List<Map<String, Object>>> learners() {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
-        boolean elevated = org.springframework.security.core.context.SecurityContextHolder.getContext()
-                .getAuthentication().getAuthorities().stream()
-                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()) || "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean superAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+        boolean admin = authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()) || "ROLE_ORG_ADMIN".equals(a.getAuthority()));
 
-        var teacherCourses = elevated ? courses.findAll() : courses.findByCreatedById(currentUserId);
+        var teacherCourses = superAdmin
+                ? courses.findAll()
+                : admin
+                    ? courses.findAll().stream()
+                        .filter(c -> c.getOrganization() != null
+                                && organizationMembers.existsByOrganizationIdAndUserId(
+                                        c.getOrganization().getId(), currentUserId))
+                        .toList()
+                    : courses.findByCreatedById(currentUserId);
         List<UUID> courseIds = teacherCourses.stream().map(c -> c.getId()).toList();
 
         if (courseIds.isEmpty()) {
