@@ -11,8 +11,9 @@ public class AcademyCourseOverviewService {
     private final CourseRepository courses;
     private final AcademyScopeService scope;
 
-    public AcademyCourseOverviewService(CourseRepository courses) {
+    public AcademyCourseOverviewService(CourseRepository courses, AcademyScopeService scope) {
         this.courses = courses;
+        this.scope = scope;
     }
 
     @Transactional(readOnly = true)
