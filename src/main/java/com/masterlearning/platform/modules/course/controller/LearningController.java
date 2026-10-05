@@ -218,7 +218,7 @@ public class LearningController {
     }
 
     @PostMapping("/courses/{courseId}/enroll")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('LEARNER','STUDENT')")
     public ApiResponse<EnrollmentResponse> enroll(@PathVariable UUID courseId) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
 
