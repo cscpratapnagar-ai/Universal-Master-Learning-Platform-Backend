@@ -13,6 +13,8 @@ import com.masterlearning.platform.modules.assessment.repository.QuestionReposit
 import com.masterlearning.platform.modules.assessment.service.MasteryEngine;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import com.masterlearning.platform.modules.course.repository.LessonRepository;
+import com.masterlearning.platform.modules.course.repository.LessonPrerequisiteRepository;
+import com.masterlearning.platform.modules.course.repository.LessonProgressRepository;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
@@ -37,16 +39,19 @@ public class StudentAssessmentController {
     private final UserRepository users;
     private final EnrollmentRepository enrollments;
     private final LessonRepository lessons;
+    private final LessonPrerequisiteRepository prerequisites;
+    private final LessonProgressRepository progress;
     private final MasteryEngine masteryEngine;
 
     public StudentAssessmentController(AssessmentRepository assessments, QuestionRepository questions,
                                        QuestionOptionRepository options, AssessmentAttemptRepository attempts,
                                        AssessmentAnswerRepository answers, UserRepository users,
                                        EnrollmentRepository enrollments, LessonRepository lessons,
+                                       LessonPrerequisiteRepository prerequisites, LessonProgressRepository progress,
                                        MasteryEngine masteryEngine) {
         this.assessments=assessments; this.questions=questions; this.options=options;
         this.attempts=attempts; this.answers=answers; this.users=users;
-        this.enrollments=enrollments; this.lessons=lessons; this.masteryEngine=masteryEngine;
+        this.enrollments=enrollments; this.lessons=lessons; this.prerequisites=prerequisites; this.progress=progress; this.masteryEngine=masteryEngine;
     }
 
     @GetMapping("/lessons/{lessonId}")
@@ -74,6 +79,7 @@ public class StudentAssessmentController {
         var assessment=assessments.findById(assessmentId).orElseThrow(()->new EntityNotFoundException("Assessment not found"));
         UUID currentUserId=SecurityUtils.getCurrentUserId();
         requireEnrollment(assessment.getCourse().getId());
+        enforceLessonPrerequisites(assessment, currentUserId);
         var user=users.findById(currentUserId).orElseThrow(()->new EntityNotFoundException("Current user not found"));
 
         long previousAttempts=attempts.countByAssessmentIdAndUserId(assessmentId,currentUserId);
@@ -113,6 +119,21 @@ public class StudentAssessmentController {
 
         return ApiResponse.success("Assessment submitted",new AssessmentResultResponse(
                 attempt.getId(),score,passed,correctAnswers,assessmentQuestions.size(),masteryLevel));
+    }
+
+    private void enforceLessonPrerequisites(com.masterlearning.platform.modules.assessment.entity.Assessment assessment, UUID userId) {
+        if (assessment.getLesson() == null) return;
+        var enrollment = enrollments.findByCourseIdAndUserId(assessment.getCourse().getId(), userId)
+                .orElseThrow(() -> new AccessDeniedException("You are not enrolled in this course"));
+        var unmet = prerequisites.findByIdLessonId(assessment.getLesson().getId()).stream()
+                .map(p -> p.getPrerequisiteLessonId())
+                .filter(id -> !progress.findByEnrollmentIdAndLessonId(enrollment.getId(), id)
+                        .map(com.masterlearning.platform.modules.course.entity.LessonProgress::isCompleted)
+                        .orElse(false))
+                .toList();
+        if (!unmet.isEmpty()) {
+            throw new AccessDeniedException("Lesson assessment is locked until all prerequisites are completed");
+        }
     }
 
     private void requireEnrollment(UUID courseId) {
