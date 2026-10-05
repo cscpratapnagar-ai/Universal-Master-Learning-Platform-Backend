@@ -10,6 +10,8 @@ import com.masterlearning.platform.modules.assessment.entity.QuestionOption;
 import com.masterlearning.platform.modules.assessment.repository.*;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
+import com.masterlearning.platform.modules.course.repository.LessonPrerequisiteRepository;
+import com.masterlearning.platform.modules.course.repository.LessonProgressRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,6 +33,8 @@ public class AdaptiveAssessmentSessionService {
     private final AssessmentAnswerRepository answers;
     private final UserRepository users;
     private final EnrollmentRepository enrollments;
+    private final LessonPrerequisiteRepository prerequisites;
+    private final LessonProgressRepository progress;
     private final AdaptiveQuestionSelectionService selector;
     private final MasteryEngine masteryEngine;
 
@@ -38,6 +42,7 @@ public class AdaptiveAssessmentSessionService {
                                             QuestionRepository questions, QuestionOptionRepository options,
                                             AssessmentAttemptRepository attempts, AssessmentAnswerRepository answers,
                                             UserRepository users, EnrollmentRepository enrollments,
+                                            LessonPrerequisiteRepository prerequisites, LessonProgressRepository progress,
                                             AdaptiveQuestionSelectionService selector, MasteryEngine masteryEngine) {
         this.jdbc = jdbc; this.assessments = assessments; this.questions = questions; this.options = options;
         this.attempts = attempts; this.answers = answers; this.users = users; this.enrollments = enrollments;
@@ -48,6 +53,7 @@ public class AdaptiveAssessmentSessionService {
     public AdaptiveAssessmentSession start(UUID assessmentId, UUID userId) {
         Assessment assessment = getAssessment(assessmentId);
         requireEnrollment(assessment, userId);
+        enforceLessonPrerequisites(assessment, userId);
         if (attempts.countByAssessmentIdAndUserId(assessmentId, userId) >= assessment.getMaxAttempts())
             throw new IllegalStateException("Maximum assessment attempts reached");
         Optional<SessionRow> existing = activeSession(assessmentId, userId);
@@ -146,6 +152,21 @@ public class AdaptiveAssessmentSessionService {
     }
 
     private Assessment getAssessment(UUID id) { return assessments.findById(id).orElseThrow(() -> new EntityNotFoundException("Assessment not found")); }
+    private void enforceLessonPrerequisites(Assessment assessment, UUID userId) {
+        if (assessment.getLesson() == null) return;
+        var enrollment = enrollments.findByCourseIdAndUserId(assessment.getCourse().getId(), userId)
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("You are not enrolled in this course"));
+        var unmet = prerequisites.findByIdLessonId(assessment.getLesson().getId()).stream()
+                .map(p -> p.getPrerequisiteLessonId())
+                .filter(id -> !progress.findByEnrollmentIdAndLessonId(enrollment.getId(), id)
+                        .map(com.masterlearning.platform.modules.course.entity.LessonProgress::isCompleted)
+                        .orElse(false))
+                .toList();
+        if (!unmet.isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Lesson assessment is locked until all prerequisites are completed");
+        }
+    }
+
     private void requireEnrollment(Assessment assessment, UUID userId) {
         if (!enrollments.existsByCourseIdAndUserId(assessment.getCourse().getId(), userId)) throw new org.springframework.security.access.AccessDeniedException("You are not enrolled in this course");
     }
