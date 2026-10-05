@@ -24,9 +24,10 @@ public class AiTutorOrchestrationController {
             @PathVariable UUID enrollmentId,
             @RequestBody TutorQuestion request) {
         String question = request == null ? null : request.question();
+        String learnerResponse = request == null ? null : request.learnerResponse();
         return ApiResponse.success("AI tutor orchestration generated",
-                service.decide(enrollmentId, SecurityUtils.getCurrentUserId(), question));
+                service.decide(enrollmentId, SecurityUtils.getCurrentUserId(), question, learnerResponse));
     }
 
-    public record TutorQuestion(String question) {}
+    public record TutorQuestion(String question, String learnerResponse) {}
 }
