@@ -9,9 +9,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class AcademyQuestionBankOverviewService {
 
     private final QuestionRepository questions;
+    private final AcademyScopeService scope;
 
-    public AcademyQuestionBankOverviewService(QuestionRepository questions) {
+    public AcademyQuestionBankOverviewService(QuestionRepository questions, AcademyScopeService scope) {
         this.questions = questions;
+        this.scope = scope;
     }
 
     @Transactional(readOnly = true)
@@ -19,12 +21,13 @@ public class AcademyQuestionBankOverviewService {
         long single = 0;
         long multiple = 0;
         long trueFalse = 0;
-        for (Question question : questions.findAll()) {
+        var list = scope.isGlobal() ? questions.findAll() : scope.accessibleOrganizationIds().stream().flatMap(id -> questions.findByOrganizationId(id).stream()).toList();
+        for (Question question : list) {
             String type = question.getQuestionType();
             if ("MULTIPLE_CHOICE".equalsIgnoreCase(type)) multiple++;
             else if ("TRUE_FALSE".equalsIgnoreCase(type)) trueFalse++;
             else single++;
         }
-        return new AcademyQuestionBankOverviewResponse(questions.count(), single, multiple, trueFalse);
+        return new AcademyQuestionBankOverviewResponse(list.size(), single, multiple, trueFalse);
     }
 }
