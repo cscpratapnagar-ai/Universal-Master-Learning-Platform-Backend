@@ -1,6 +1,7 @@
 package com.masterlearning.platform.modules.user.repository;
 
 import com.masterlearning.platform.modules.user.entity.User;
+import com.masterlearning.platform.modules.organization.entity.OrganizationMember;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -36,6 +37,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByEmailIgnoreCase(String email);
 
     long countByEnabledTrue();
+
+    @Query("select count(distinct u) from User u join u.roles r join OrganizationMember m on m.user.id = u.id where m.organization.id = :organizationId and m.active = true and upper(r.code) = upper(:roleCode)")
+    long countActiveByOrganizationIdAndRoleCode(@org.springframework.data.repository.query.Param("organizationId") UUID organizationId, @org.springframework.data.repository.query.Param("roleCode") String roleCode);
 
     @Query("""
             select count(distinct u)
