@@ -22,21 +22,24 @@ public class AiTutorOrchestrationService {
     private final LearnerTutorContextService learnerContext;
     private final AiKnowledgeContextService knowledgeContext;
     private final TutorIntelligenceService intelligence;
+    private final UnderstandingEvaluationService understandingEvaluation;
     private final AdaptiveTeachingDecisionService teachingDecision;
 
     public AiTutorOrchestrationService(EnrollmentRepository enrollments,
                                        LearnerTutorContextService learnerContext,
                                        AiKnowledgeContextService knowledgeContext,
                                        TutorIntelligenceService intelligence,
+                                       UnderstandingEvaluationService understandingEvaluation,
                                        AdaptiveTeachingDecisionService teachingDecision) {
         this.enrollments = enrollments;
         this.learnerContext = learnerContext;
         this.knowledgeContext = knowledgeContext;
         this.intelligence = intelligence;
+        this.understandingEvaluation = understandingEvaluation;
         this.teachingDecision = teachingDecision;
     }
 
-    public AiTutorOrchestration decide(UUID enrollmentId, UUID userId, String question) {
+    public AiTutorOrchestration decide(UUID enrollmentId, UUID userId, String question, String learnerResponse) {
         Enrollment enrollment = enrollments.findById(enrollmentId)
                 .orElseThrow(() -> new EntityNotFoundException("Enrollment not found"));
         if (!enrollment.getUser().getId().equals(userId)) {
@@ -48,13 +51,14 @@ public class AiTutorOrchestrationService {
         boolean prerequisiteBlocked = !knowledge.prerequisiteConcepts().isEmpty();
         TutorIntelligenceContext tutorSignals = intelligence.analyze(
                 question == null ? "" : question, learner, prerequisiteBlocked);
-        UnderstandingEvaluation understanding = null;
+        UnderstandingEvaluation understanding = understandingEvaluation.evaluate(learnerResponse);
         AdaptiveTeachingDecision decision = teachingDecision.decide(learner, tutorSignals, understanding);
 
         List<String> reasons = new ArrayList<>(decision.reasons());
         if (!knowledge.weakConcepts().isEmpty()) reasons.add("weak_concept_context");
         if (!knowledge.prerequisiteConcepts().isEmpty()) reasons.add("prerequisite_context");
         if (!knowledge.relevantNodes().isEmpty()) reasons.add("knowledge_graph_context");
+        if (understanding.needsPractice()) reasons.add("understanding_requires_practice");
 
         return new AiTutorOrchestration(
                 enrollmentId,
