@@ -4,6 +4,7 @@ import com.masterlearning.platform.common.api.ApiResponse;
 import com.masterlearning.platform.modules.assessment.dto.request.SubmitAssessmentRequest;
 import com.masterlearning.platform.modules.assessment.dto.response.AssessmentResultResponse;
 import com.masterlearning.platform.modules.assessment.entity.AssessmentAnswer;
+import com.masterlearning.platform.modules.assessment.entity.AssessmentAttempt;
 import com.masterlearning.platform.modules.assessment.entity.Question;
 import com.masterlearning.platform.modules.assessment.repository.AssessmentAnswerRepository;
 import com.masterlearning.platform.modules.assessment.repository.AssessmentAttemptRepository;
@@ -108,7 +109,7 @@ public class StudentAssessmentController {
         int score=(int)Math.round(earnedPoints*100.0/totalPoints);
         boolean passed=score>=assessment.getPassingScore();
         String masteryLevel=masteryEngine.assessmentMasteryLevel(score);
-        var attempt;
+        AssessmentAttempt attempt;
         try {
             attempt = attempts.saveAndFlush(new com.masterlearning.platform.modules.assessment.entity.AssessmentAttempt(
                     assessment,user,(int)previousAttempts+1,score,passed,masteryLevel));
