@@ -23,13 +23,14 @@ public class LearningStateInterventionService {
         String intervention;
         String strategy = intelligence.teachingStrategy();
         String level = explanation.level();
-        String followUp = understanding.nextAction();
-        boolean practiceRecommended = practice.recommended() || understanding.needsPractice();
+        String followUp = understanding == null ? "CHECK_UNDERSTANDING" : understanding.nextAction();
+        boolean understandingNeedsPractice = understanding != null && understanding.needsPractice();
+        boolean practiceRecommended = practice.recommended() || understandingNeedsPractice;
 
-        if ("CONFUSED".equals(understanding.signal())) {
+        if (understanding != null && "CONFUSED".equals(understanding.signal())) {
             intervention = "RETEACH_AND_CHECK";
             reasons.add("learner_confusion");
-        } else if ("UNCERTAIN".equals(understanding.signal())) {
+        } else if (understanding != null && "UNCERTAIN".equals(understanding.signal())) {
             intervention = "GUIDED_CHECK";
             reasons.add("learner_uncertainty");
         } else if (intelligence.signals().contains("prerequisite_blocker")) {
