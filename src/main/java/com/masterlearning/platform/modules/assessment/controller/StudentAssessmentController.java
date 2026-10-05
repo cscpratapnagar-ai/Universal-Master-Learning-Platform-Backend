@@ -20,6 +20,7 @@ import com.masterlearning.platform.security.util.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -107,8 +108,13 @@ public class StudentAssessmentController {
         int score=(int)Math.round(earnedPoints*100.0/totalPoints);
         boolean passed=score>=assessment.getPassingScore();
         String masteryLevel=masteryEngine.assessmentMasteryLevel(score);
-        var attempt=attempts.save(new com.masterlearning.platform.modules.assessment.entity.AssessmentAttempt(
-                assessment,user,(int)previousAttempts+1,score,passed,masteryLevel));
+        var attempt;
+        try {
+            attempt = attempts.saveAndFlush(new com.masterlearning.platform.modules.assessment.entity.AssessmentAttempt(
+                    assessment,user,(int)previousAttempts+1,score,passed,masteryLevel));
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalStateException("Assessment attempt could not be submitted because another submission was processed concurrently. Please refresh and try again.");
+        }
 
         for(var question:assessmentQuestions){
             UUID selectedId=request.answers().get(question.getId());
