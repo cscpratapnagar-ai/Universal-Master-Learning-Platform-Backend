@@ -10,6 +10,7 @@ import com.masterlearning.platform.modules.course.entity.Enrollment;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ public class AiTutorOrchestrationService {
     private final UnderstandingEvaluationService understandingEvaluation;
     private final AdaptiveTeachingDecisionService teachingDecision;
 
+    @Autowired
     public AiTutorOrchestrationService(EnrollmentRepository enrollments,
                                        LearnerTutorContextService learnerContext,
                                        AiKnowledgeContextService knowledgeContext,
@@ -37,6 +39,15 @@ public class AiTutorOrchestrationService {
         this.intelligence = intelligence;
         this.understandingEvaluation = understandingEvaluation;
         this.teachingDecision = teachingDecision;
+    }
+
+    public AiTutorOrchestrationService(EnrollmentRepository enrollments,
+                                       LearnerTutorContextService learnerContext,
+                                       AiKnowledgeContextService knowledgeContext,
+                                       TutorIntelligenceService intelligence,
+                                       AdaptiveTeachingDecisionService teachingDecision) {
+        this(enrollments, learnerContext, knowledgeContext, intelligence,
+                new UnderstandingEvaluationService(), teachingDecision);
     }
 
     public AiTutorOrchestration decide(UUID enrollmentId, UUID userId, String question, String learnerResponse) {
