@@ -27,11 +27,13 @@ public class LearningController {
     private final EnrollmentRepository enrollments;
     private final UserRepository users;
     private final LessonPrerequisiteRepository prerequisites;
+    private final LessonProgressRepository lessonProgress;
     private final CourseAuthorizationService authorization;
 
     public LearningController(CourseRepository c, CourseModuleRepository m, LessonRepository l,
                               EnrollmentRepository e, UserRepository u,
                               LessonPrerequisiteRepository prerequisites,
+                              LessonProgressRepository lessonProgress,
                               CourseAuthorizationService authorization) {
         courses = c;
         modules = m;
@@ -39,6 +41,7 @@ public class LearningController {
         enrollments = e;
         users = u;
         this.prerequisites = prerequisites;
+        this.lessonProgress = lessonProgress;
         this.authorization = authorization;
     }
 
@@ -258,11 +261,18 @@ public class LearningController {
             );
         }
 
-        e.updateProgress(r.progressPercent());
+        long totalLessons = modules.findByCourseIdOrderBySortOrderAsc(e.getCourse().getId()).stream()
+                .mapToLong(m -> lessons.findByModuleIdOrderBySortOrderAsc(m.getId()).size())
+                .sum();
+        long completedLessons = lessonProgress.countByEnrollmentIdAndCompletedTrue(e.getId());
+        int derivedProgress = totalLessons == 0
+                ? 0
+                : (int) Math.round(completedLessons * 100.0 / totalLessons);
+        e.updateProgress(derivedProgress);
         enrollments.save(e);
 
         return ApiResponse.success(
-                "Progress updated",
+                "Progress synchronized from completed lessons",
                 new EnrollmentResponse(e.getId(), e.getProgressPercent())
         );
     }
