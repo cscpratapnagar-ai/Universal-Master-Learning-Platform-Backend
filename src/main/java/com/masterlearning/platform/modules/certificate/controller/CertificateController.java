@@ -1,9 +1,9 @@
 package com.masterlearning.platform.modules.certificate.controller;
-import com.masterlearning.platform.common.api.ApiResponse; import com.masterlearning.platform.modules.certificate.entity.Certificate; import com.masterlearning.platform.modules.certificate.repository.CertificateRepository; import com.masterlearning.platform.modules.course.repository.CourseRepository; import com.masterlearning.platform.modules.course.repository.EnrollmentRepository; import com.masterlearning.platform.modules.user.repository.UserRepository; import jakarta.persistence.EntityNotFoundException; import org.springframework.web.bind.annotation.*; import java.util.*;
+import com.masterlearning.platform.common.api.ApiResponse; import com.masterlearning.platform.modules.certificate.entity.Certificate; import com.masterlearning.platform.modules.certificate.repository.CertificateRepository; import com.masterlearning.platform.modules.course.repository.CourseRepository; import com.masterlearning.platform.modules.course.repository.EnrollmentRepository; import com.masterlearning.platform.modules.user.repository.UserRepository; import jakarta.persistence.EntityNotFoundException; import org.springframework.security.access.prepost.PreAuthorize; import org.springframework.web.bind.annotation.*; import java.util.*;
 @RestController @RequestMapping("/api/v1/certificates") public class CertificateController {
  private final CertificateRepository certificates; private final CourseRepository courses; private final UserRepository users; private final EnrollmentRepository enrollments;
  public CertificateController(CertificateRepository c,CourseRepository co,UserRepository u,EnrollmentRepository e){certificates=c;courses=co;users=u;enrollments=e;}
- @PostMapping("/courses/{courseId}/users/{userId}/issue")
+ @PostMapping("/courses/{courseId}/users/{userId}/issue") @PreAuthorize("hasRole('SUPER_ADMIN')")
  public ApiResponse<Map<String,Object>> issue(@PathVariable UUID courseId,@PathVariable UUID userId){
    if(certificates.existsByCourseIdAndUserId(courseId,userId)) throw new IllegalArgumentException("Certificate already issued");
    var course=courses.findById(courseId).orElseThrow(()->new EntityNotFoundException("Course not found")); var user=users.findById(userId).orElseThrow(()->new EntityNotFoundException("User not found"));
