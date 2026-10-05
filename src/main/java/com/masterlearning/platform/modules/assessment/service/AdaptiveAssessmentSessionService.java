@@ -46,6 +46,7 @@ public class AdaptiveAssessmentSessionService {
                                             AdaptiveQuestionSelectionService selector, MasteryEngine masteryEngine) {
         this.jdbc = jdbc; this.assessments = assessments; this.questions = questions; this.options = options;
         this.attempts = attempts; this.answers = answers; this.users = users; this.enrollments = enrollments;
+        this.prerequisites = prerequisites; this.progress = progress;
         this.selector = selector; this.masteryEngine = masteryEngine;
     }
 
