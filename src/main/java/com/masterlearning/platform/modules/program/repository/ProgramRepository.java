@@ -13,4 +13,6 @@ public interface ProgramRepository extends JpaRepository<Program,UUID>{
     @EntityGraph(attributePaths="organization")
     List<Program> findByOrganizationIdOrderByTitleAsc(UUID organizationId);
     long countByStatus(ProgramStatus status);
+    long countByOrganizationId(UUID organizationId);
+    long countByOrganizationIdAndStatus(UUID organizationId, ProgramStatus status);
 }
