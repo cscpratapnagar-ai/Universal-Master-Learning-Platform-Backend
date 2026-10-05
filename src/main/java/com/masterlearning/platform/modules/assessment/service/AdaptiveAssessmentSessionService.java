@@ -60,7 +60,13 @@ public class AdaptiveAssessmentSessionService {
         Optional<SessionRow> existing = activeSession(assessmentId, userId);
         if (existing.isPresent()) return view(existing.get(), assessment);
         UUID sessionId = UUID.randomUUID();
-        jdbc.update("INSERT INTO assessment_sessions(id, assessment_id, user_id, status, questions_answered) VALUES (?, ?, ?, 'ACTIVE', 0)", sessionId, assessmentId, userId);
+        try {
+            jdbc.update("INSERT INTO assessment_sessions(id, assessment_id, user_id, status, questions_answered) VALUES (?, ?, ?, 'ACTIVE', 0)", sessionId, assessmentId, userId);
+        } catch (DataIntegrityViolationException ex) {
+            return activeSession(assessmentId, userId)
+                    .map(existingSession -> view(existingSession, assessment))
+                    .orElseThrow(() -> new IllegalStateException("Adaptive assessment session could not be started concurrently. Please retry."));
+        }
         return nextInternal(sessionId, assessment, userId, Set.of(), 0);
     }
 
@@ -120,7 +126,12 @@ public class AdaptiveAssessmentSessionService {
         boolean passed = score >= assessment.getPassingScore();
         var user = users.findById(userId).orElseThrow(() -> new EntityNotFoundException("Current user not found"));
         int attemptNumber = (int) attempts.countByAssessmentIdAndUserId(assessment.getId(), userId) + 1;
-        AssessmentAttempt attempt = attempts.saveAndFlush(new AssessmentAttempt(assessment, user, attemptNumber, score, passed, masteryEngine.assessmentMasteryLevel(score)));
+        AssessmentAttempt attempt;
+        try {
+            attempt = attempts.saveAndFlush(new AssessmentAttempt(assessment, user, attemptNumber, score, passed, masteryEngine.assessmentMasteryLevel(score)));
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalStateException("Adaptive assessment completion conflicted with another submission. Please retry.");
+        }
         for (AnswerRow row : rows) {
             Question q = questions.findById(row.questionId()).orElseThrow();
             QuestionOption option = row.selectedOptionId() == null ? null : options.findById(row.selectedOptionId()).orElse(null);
