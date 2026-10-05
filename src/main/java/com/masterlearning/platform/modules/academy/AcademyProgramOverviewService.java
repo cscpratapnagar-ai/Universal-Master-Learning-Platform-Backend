@@ -11,8 +11,9 @@ public class AcademyProgramOverviewService {
     private final ProgramRepository programs;
     private final AcademyScopeService scope;
 
-    public AcademyProgramOverviewService(ProgramRepository programs) {
+    public AcademyProgramOverviewService(ProgramRepository programs, AcademyScopeService scope) {
         this.programs = programs;
+        this.scope = scope;
     }
 
     @Transactional(readOnly = true)
