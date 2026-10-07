@@ -3,6 +3,8 @@ package com.masterlearning.platform.modules.ai.service;
 import com.masterlearning.platform.modules.ai.dto.response.AiLearningOrchestration;
 import com.masterlearning.platform.modules.ai.dto.response.AiKnowledgeContext;
 import com.masterlearning.platform.modules.ai.dto.response.NextBestLearningIntervention;
+import com.masterlearning.platform.modules.ai.entity.LearningInterventionOutcome;
+import com.masterlearning.platform.modules.ai.repository.LearningInterventionOutcomeRepository;
 import com.masterlearning.platform.modules.course.entity.Enrollment;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import com.masterlearning.platform.modules.learning.dto.response.PersonalizedRecommendation;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -21,15 +24,18 @@ public class NextBestLearningInterventionService {
     private final AiLearningOrchestratorService learningOrchestrator;
     private final AiKnowledgeContextService knowledgeContext;
     private final PersonalizedRecommendationService recommendations;
+    private final LearningInterventionOutcomeRepository interventionOutcomes;
 
     public NextBestLearningInterventionService(EnrollmentRepository enrollments,
                                                AiLearningOrchestratorService learningOrchestrator,
                                                AiKnowledgeContextService knowledgeContext,
-                                               PersonalizedRecommendationService recommendations) {
+                                               PersonalizedRecommendationService recommendations,
+                                               LearningInterventionOutcomeRepository interventionOutcomes) {
         this.enrollments = enrollments;
         this.learningOrchestrator = learningOrchestrator;
         this.knowledgeContext = knowledgeContext;
         this.recommendations = recommendations;
+        this.interventionOutcomes = interventionOutcomes;
     }
 
     public NextBestLearningIntervention forEnrollment(UUID enrollmentId, UUID userId) {
@@ -42,6 +48,7 @@ public class NextBestLearningInterventionService {
         AiLearningOrchestration orchestration = learningOrchestrator.forEnrollment(enrollmentId, userId);
         AiKnowledgeContext knowledge = knowledgeContext.forEnrollment(enrollmentId, userId);
         PersonalizedRecommendation recommendation = recommendations.forEnrollment(enrollmentId, userId);
+        List<LearningInterventionOutcome> history = interventionOutcomes.findTop5ByEnrollmentIdOrderByCreatedAtDesc(enrollmentId);
 
         String intervention;
         String priority;
@@ -77,6 +84,19 @@ public class NextBestLearningInterventionService {
             expectedOutcome = "Continue progression without unnecessary remediation or overload";
         }
 
+        LearningInterventionOutcome latest = history.isEmpty() ? null : history.get(0);
+        String recentOutcome = latest == null ? null : latest.getOutcome();
+        boolean repeatRisk = latest != null
+                && intervention.equalsIgnoreCase(latest.getInterventionType())
+                && ("FAILED".equalsIgnoreCase(latest.getOutcome())
+                || "NO_IMPROVEMENT".equalsIgnoreCase(latest.getOutcome()));
+
+        if (repeatRisk) {
+            priority = "CRITICAL";
+            rationale = "The same intervention recently failed or produced no improvement; the learner needs a stronger recovery strategy";
+            expectedOutcome = "Break the repeated intervention pattern and produce measurable learning improvement";
+        }
+
         List<String> reasons = new ArrayList<>(orchestration.reasons());
         reasons.add("Selected intervention: " + intervention);
         if (!knowledge.weakConcepts().isEmpty()) {
@@ -86,6 +106,12 @@ public class NextBestLearningInterventionService {
             reasons.add("Prerequisite context: " + String.join(", ", knowledge.prerequisiteConcepts()));
         }
         reasons.add("Personalized recommendation: " + recommendation.action());
+        if (recentOutcome != null) {
+            reasons.add("Recent intervention outcome: " + recentOutcome);
+        }
+        if (repeatRisk) {
+            reasons.add("Repeat-risk detected: the latest matching intervention did not improve the learner outcome");
+        }
 
         return new NextBestLearningIntervention(
                 enrollmentId,
@@ -96,7 +122,9 @@ public class NextBestLearningInterventionService {
                 recommendation.targetLessonTitle(),
                 rationale,
                 expectedOutcome,
-                List.copyOf(reasons)
+                List.copyOf(reasons),
+                recentOutcome,
+                repeatRisk
         );
     }
 }
