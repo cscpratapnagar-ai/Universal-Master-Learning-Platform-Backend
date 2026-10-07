@@ -12,5 +12,7 @@ public record NextBestLearningIntervention(
         String targetLessonTitle,
         String rationale,
         String expectedOutcome,
-        List<String> reasons
+        List<String> reasons,
+        String recentOutcome,
+        boolean repeatRisk
 ) {}
