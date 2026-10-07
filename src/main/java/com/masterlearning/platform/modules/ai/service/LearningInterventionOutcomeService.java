@@ -2,6 +2,7 @@ package com.masterlearning.platform.modules.ai.service;
 import com.masterlearning.platform.modules.ai.dto.request.LearningInterventionOutcomeRequest;
 import com.masterlearning.platform.modules.ai.entity.LearningInterventionOutcome;
 import com.masterlearning.platform.modules.ai.repository.LearningInterventionOutcomeRepository;
+import com.masterlearning.platform.modules.ai.dto.response.LearningInterventionOutcomeSummary;
 import com.masterlearning.platform.modules.course.entity.Enrollment;
 import com.masterlearning.platform.modules.course.repository.EnrollmentRepository;
 import com.masterlearning.platform.modules.user.entity.User;
@@ -27,6 +28,16 @@ public class LearningInterventionOutcomeService {
         return outcomes.save(new LearningInterventionOutcome(enrollment,user,request.interventionType().trim().toUpperCase(),
             request.targetLessonId(),request.outcome().trim().toUpperCase(),request.masteryDelta(),request.notes()));
     }
+    public LearningInterventionOutcomeSummary summary(UUID enrollmentId, UUID userId){
+        List<LearningInterventionOutcome> history = recent(enrollmentId, userId);
+        long successful = history.stream().filter(o -> "SUCCESS".equalsIgnoreCase(o.getOutcome()) || "IMPROVED".equalsIgnoreCase(o.getOutcome())).count();
+        long failed = history.stream().filter(o -> "FAILED".equalsIgnoreCase(o.getOutcome())).count();
+        long noImprovement = history.stream().filter(o -> "NO_IMPROVEMENT".equalsIgnoreCase(o.getOutcome())).count();
+        long unknown = history.size() - successful - failed - noImprovement;
+        double averageDelta = history.stream().map(LearningInterventionOutcome::getMasteryDelta).filter(java.util.Objects::nonNull).mapToDouble(Double::doubleValue).average().orElse(0.0);
+        return new LearningInterventionOutcomeSummary(history.size(), successful, failed, noImprovement, unknown, averageDelta);
+    }
+
     public List<LearningInterventionOutcome> recent(UUID enrollmentId, UUID userId){
         Enrollment enrollment=enrollments.findById(enrollmentId).orElseThrow(()->new EntityNotFoundException("Enrollment not found"));
         if(!enrollment.getUser().getId().equals(userId)) throw new AccessDeniedException("Enrollment does not belong to current user");
