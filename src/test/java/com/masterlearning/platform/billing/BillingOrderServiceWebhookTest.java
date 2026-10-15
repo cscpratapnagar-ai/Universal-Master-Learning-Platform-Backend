@@ -112,6 +112,7 @@ class BillingOrderServiceWebhookTest {
         BillingOrderRepository orders = mock(BillingOrderRepository.class);
         BillingPaymentRepository payments = mock(BillingPaymentRepository.class);
         when(orders.findById(orderId)).thenReturn(Optional.of(order));
+        when(orders.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
         BillingOrderService service = new BillingOrderService(
                 orders, payments, mock(BillingInvoiceRepository.class), mock(BillingRefundRepository.class),
                 mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
