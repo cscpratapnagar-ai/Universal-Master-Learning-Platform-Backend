@@ -136,9 +136,9 @@ class BillingOrderServiceWebhookTest {
 
     @Test
     void usesProviderEventHeaderWhenWebhookBodyHasNoEventId() throws Exception {
-        String body = "{\\"event\\":\\"payment.captured\\","
-                + "\\"payload\\":{\\"payment\\":{\\"entity\\":{\\"id\\":\\"pay_test_123\\","
-                + "\\"order_id\\":\\"order_test_123\\"}}}}";
+        String body = "{\"event\":\"payment.captured\","
+                + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_test_123\","
+                + "\"order_id\":\"order_test_123\"}}}}";
         BillingWebhookEvent existing = mock(BillingWebhookEvent.class);
         when(existing.getPayloadHash()).thenReturn(hash(body));
         when(existing.getStatus()).thenReturn("RECEIVED");
