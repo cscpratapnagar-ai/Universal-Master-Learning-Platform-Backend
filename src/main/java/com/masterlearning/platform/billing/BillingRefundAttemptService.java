@@ -32,6 +32,14 @@ public class BillingRefundAttemptService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public BillingRefund markReconciliationRequired(UUID refundId) {
+        BillingRefund refund = refunds.findById(refundId)
+                .orElseThrow(() -> new IllegalStateException("Refund attempt record not found"));
+        refund.reconciliationRequired();
+        return refunds.saveAndFlush(refund);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public BillingRefund markRefunded(UUID refundId, String providerRefundId) {
         BillingRefund refund = refunds.findById(refundId)
                 .orElseThrow(() -> new IllegalStateException("Refund attempt record not found"));

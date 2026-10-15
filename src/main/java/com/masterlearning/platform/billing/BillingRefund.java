@@ -28,6 +28,7 @@ public class BillingRefund {
     }
     public void refunded(String providerRefundId){this.providerRefundId=providerRefundId;this.status="REFUNDED";this.updatedAt=LocalDateTime.now();}
     public void failed(){this.status="FAILED";this.updatedAt=LocalDateTime.now();}
+    public void reconciliationRequired(){this.status="RECONCILIATION_REQUIRED";this.updatedAt=LocalDateTime.now();}
     public UUID getId(){return id;} public UUID getPaymentId(){return paymentId;} public UUID getOrderId(){return orderId;}
     public UUID getUserId(){return userId;} public BigDecimal getAmount(){return amount;} public String getCurrency(){return currency;}
     public String getStatus(){return status;} public String getProviderRefundId(){return providerRefundId;}

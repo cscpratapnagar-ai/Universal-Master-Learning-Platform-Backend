@@ -210,9 +210,12 @@ public class BillingOrderService {
         if (reason != null && reason.length() > 500)
             throw new IllegalArgumentException("Refund reason must be 500 characters or fewer");
 
-        BigDecimal alreadyRefunded = refunds.findByPaymentIdAndStatus(payment.getId(), "REFUNDED").stream()
+        // Reserve confirmed refunds and unresolved attempts. A timeout does not prove the
+        // gateway rejected the request; retrying an ambiguous refund could double-refund.
+        BigDecimal reservedRefunds = refunds.findByPaymentIdAndStatusIn(payment.getId(),
+                        java.util.List.of("REFUNDED", "REQUESTED", "PROCESSING", "RECONCILIATION_REQUIRED")).stream()
                 .map(BillingRefund::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal refundable = payment.getAmount().subtract(alreadyRefunded);
+        BigDecimal refundable = payment.getAmount().subtract(reservedRefunds);
         if (refundAmount.compareTo(refundable) > 0)
             throw new IllegalArgumentException("Refund amount exceeds the remaining refundable amount");
 
@@ -235,11 +238,11 @@ public class BillingOrderService {
             if (refundId.isBlank()) throw new IllegalStateException("Razorpay did not return refund id");
         } catch (Exception ex) {
             try {
-                refundAttempts.markFailed(refund.getId());
+                refundAttempts.markReconciliationRequired(refund.getId());
             } catch (Exception persistenceError) {
                 ex.addSuppressed(persistenceError);
             }
-            throw new IllegalStateException("Unable to confirm refund with gateway; reconcile the persisted refund attempt before retrying", ex);
+            throw new IllegalStateException("Refund outcome is unknown; the attempt is reserved for reconciliation and must not be retried automatically", ex);
         }
 
         // Do not mark the gateway refund as failed if a later local subscription or
