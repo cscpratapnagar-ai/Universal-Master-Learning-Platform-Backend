@@ -52,8 +52,9 @@ public class BillingOrderController {
     @PreAuthorize("permitAll()")
     public ResponseEntity<Void> razorpayWebhook(
             @RequestHeader(value = "X-Razorpay-Signature", required = false) String signature,
+            @RequestHeader(value = "X-Razorpay-Event-Id", required = false) String eventId,
             @RequestBody String rawBody) {
-        service.handleRazorpayWebhook(rawBody, signature);
+        service.handleRazorpayWebhook(rawBody, signature, eventId);
         return ResponseEntity.ok().build();
     }
 }

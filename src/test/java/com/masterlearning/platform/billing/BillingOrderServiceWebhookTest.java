@@ -135,6 +135,21 @@ class BillingOrderServiceWebhookTest {
     }
 
     @Test
+    void usesProviderEventHeaderWhenWebhookBodyHasNoEventId() throws Exception {
+        String body = "{\\"event\\":\\"payment.captured\\","
+                + "\\"payload\\":{\\"payment\\":{\\"entity\\":{\\"id\\":\\"pay_test_123\\","
+                + "\\"order_id\\":\\"order_test_123\\"}}}}";
+        BillingWebhookEventRepository events = mock(BillingWebhookEventRepository.class);
+        BillingOrderService service = service(events);
+        String signature = signature(body);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.handleRazorpayWebhook(body, signature, "evt_header_123"));
+        verify(events).insertIfAbsent(any(), eq("RAZORPAY"), eq("evt_header_123"),
+                eq("payment.captured"), anyString());
+    }
+
+    @Test
     void rejectsSupportedWebhookWithoutProviderEventIdInsteadOfUsingPaymentIdAsFallback() throws Exception {
         String body = "{\"event\":\"payment.captured\","
                 + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_test_123\","

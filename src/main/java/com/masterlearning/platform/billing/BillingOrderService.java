@@ -124,6 +124,11 @@ public class BillingOrderService {
 
     @Transactional
     public void handleRazorpayWebhook(String rawBody, String signature) {
+        handleRazorpayWebhook(rawBody, signature, null);
+    }
+
+    @Transactional
+    public void handleRazorpayWebhook(String rawBody, String signature, String providerEventId) {
         String expected = hmacHex(rawBody, webhookSecret);
         if (signature == null || !java.security.MessageDigest.isEqual(
                 expected.getBytes(StandardCharsets.UTF_8),
@@ -137,9 +142,12 @@ public class BillingOrderService {
             if (!"order.paid".equals(event) && !"payment.captured".equals(event)) {
                 return;
             }
-            // Only the provider event id is a safe deduplication key. A payment id can
-            // appear in multiple event types and must not be used as a fallback event id.
-            final String eventId = root.path("id").asText();
+            // Razorpay sends the unique event identifier in X-Razorpay-Event-Id.
+            // The body id is accepted for compatible providers/tests, but payment ids
+            // are never a safe fallback because they can span multiple event types.
+            String resolvedEventId = providerEventId == null ? "" : providerEventId.trim();
+            if (resolvedEventId.isBlank()) resolvedEventId = root.path("id").asText();
+            final String eventId = resolvedEventId.trim();
             if (eventId.isBlank()) throw new IllegalArgumentException("Razorpay webhook event id is missing");
             if (eventId.length() > 180) throw new IllegalArgumentException("Razorpay webhook event id is too long");
             String payloadHash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
