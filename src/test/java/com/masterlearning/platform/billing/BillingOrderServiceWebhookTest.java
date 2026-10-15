@@ -176,6 +176,16 @@ class BillingOrderServiceWebhookTest {
     }
 
     @Test
+    void rejectsNegativeGatewayAmount() throws Exception {
+        assertWebhookPaymentMismatchRejected("-10000", "INR");
+    }
+
+    @Test
+    void rejectsExponentEncodedGatewayAmount() throws Exception {
+        assertWebhookPaymentMismatchRejected("1e4", "INR");
+    }
+
+    @Test
     void rejectsDifferentPaymentForAnAlreadyPaidOrder() throws Exception {
         String body = "{\"id\":\"evt_second_payment\",\"event\":\"payment.captured\","
                 + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_second_123\","
