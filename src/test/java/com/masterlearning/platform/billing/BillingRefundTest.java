@@ -30,6 +30,25 @@ class BillingRefundTest {
     }
 
     @Test
+    void repeatedConfirmationIsIdempotentButDifferentProviderIdIsRejected() {
+        BillingRefund refund = new BillingRefund(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                "RAZORPAY", new BigDecimal("25.00"), "INR", "confirmed");
+
+        refund.refunded("rfnd_test_123");
+        refund.refunded("rfnd_test_123");
+
+        assertEquals("REFUNDED", refund.getStatus());
+        assertEquals("rfnd_test_123", refund.getProviderRefundId());
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> refund.refunded("rfnd_different_456"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                refund::failed);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                refund::reconciliationRequired);
+    }
+
+    @Test
     void confirmedRefundStoresProviderIdAndFinalStatus() {
         BillingRefund refund = new BillingRefund(
                 UUID.randomUUID(),

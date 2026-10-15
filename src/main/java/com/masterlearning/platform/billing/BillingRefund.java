@@ -26,9 +26,32 @@ public class BillingRefund {
         this.id=id;this.paymentId=paymentId;this.orderId=orderId;this.userId=userId;this.provider=provider;this.amount=amount;this.currency=currency;this.reason=reason;
         this.status="REQUESTED";this.createdAt=LocalDateTime.now();this.updatedAt=this.createdAt;
     }
-    public void refunded(String providerRefundId){this.providerRefundId=providerRefundId;this.status="REFUNDED";this.updatedAt=LocalDateTime.now();}
-    public void failed(){this.status="FAILED";this.updatedAt=LocalDateTime.now();}
-    public void reconciliationRequired(){this.status="RECONCILIATION_REQUIRED";this.updatedAt=LocalDateTime.now();}
+    public void refunded(String providerRefundId){
+        if (providerRefundId == null || providerRefundId.isBlank()) {
+            throw new IllegalArgumentException("Provider refund id is required");
+        }
+        if ("REFUNDED".equals(this.status)) {
+            if (!providerRefundId.equals(this.providerRefundId)) {
+                throw new IllegalStateException("Refund is already linked to a different provider refund id");
+            }
+            return;
+        }
+        this.providerRefundId=providerRefundId;
+        this.status="REFUNDED";
+        this.updatedAt=LocalDateTime.now();
+    }
+    public void failed(){
+        if ("REFUNDED".equals(this.status)) {
+            throw new IllegalStateException("A confirmed refund cannot be marked failed");
+        }
+        this.status="FAILED";this.updatedAt=LocalDateTime.now();
+    }
+    public void reconciliationRequired(){
+        if ("REFUNDED".equals(this.status)) {
+            throw new IllegalStateException("A confirmed refund does not require reconciliation");
+        }
+        this.status="RECONCILIATION_REQUIRED";this.updatedAt=LocalDateTime.now();
+    }
     public UUID getId(){return id;} public UUID getPaymentId(){return paymentId;} public UUID getOrderId(){return orderId;}
     public UUID getUserId(){return userId;} public BigDecimal getAmount(){return amount;} public String getCurrency(){return currency;}
     public String getStatus(){return status;} public String getProviderRefundId(){return providerRefundId;}
