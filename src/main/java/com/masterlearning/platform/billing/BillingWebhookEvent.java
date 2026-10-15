@@ -25,4 +25,5 @@ public class BillingWebhookEvent {
     public void processed(){status="PROCESSED";processedAt=LocalDateTime.now();errorMessage=null;}
     public void failed(String error){status="FAILED";errorMessage=error;processedAt=LocalDateTime.now();}
     public String getStatus(){return status;}
+    public String getPayloadHash(){return payloadHash;}
 }
