@@ -160,6 +160,40 @@ class BillingOrderServiceWebhookTest {
     }
 
     @Test
+    void unresolvedRefundAttemptReservesAmountAndPreventsDuplicateRefund() {
+        var orderId = java.util.UUID.randomUUID();
+        var order = new BillingOrder(orderId, java.util.UUID.randomUUID(), java.util.UUID.randomUUID(),
+                "MONTHLY", new java.math.BigDecimal("100.00"), "INR");
+        order.markPaid();
+        var paymentId = java.util.UUID.randomUUID();
+        var payment = new BillingPayment(paymentId, orderId, "RAZORPAY",
+                new java.math.BigDecimal("100.00"), "INR");
+        payment.capture("pay_test_123");
+        var unresolved = new BillingRefund(java.util.UUID.randomUUID(), paymentId, orderId,
+                order.getUserId(), "RAZORPAY", new java.math.BigDecimal("100.00"), "INR", "previous attempt");
+
+        BillingOrderRepository orders = mock(BillingOrderRepository.class);
+        BillingPaymentRepository payments = mock(BillingPaymentRepository.class);
+        BillingRefundRepository refunds = mock(BillingRefundRepository.class);
+        when(orders.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+        when(payments.findByOrderId(orderId)).thenReturn(Optional.of(payment));
+        when(refunds.findByPaymentIdAndStatusIn(eq(paymentId), anyCollection()))
+                .thenReturn(java.util.List.of(unresolved));
+
+        BillingOrderService service = new BillingOrderService(
+                orders, payments, mock(BillingInvoiceRepository.class), refunds,
+                mock(BillingRefundAttemptService.class), mock(BillingWebhookEventRepository.class),
+                mock(SubscriptionPlanRepository.class), mock(UserSubscriptionService.class),
+                new ObjectMapper(), "test-key-id", "test-key-secret", SECRET,
+                "https://api.razorpay.com/v1");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.refund(orderId, new java.math.BigDecimal("1.00"), "duplicate attempt"));
+        verify(refunds).findByPaymentIdAndStatusIn(eq(paymentId), anyCollection());
+        verify(refunds, never()).save(any(BillingRefund.class));
+    }
+
+    @Test
     void paymentVerificationRejectsAnotherUsersOrderBeforePaymentLookup() {
         var ownerId = java.util.UUID.randomUUID();
         var otherUserId = java.util.UUID.randomUUID();
