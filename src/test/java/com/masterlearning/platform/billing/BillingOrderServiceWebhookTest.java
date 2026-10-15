@@ -107,6 +107,55 @@ class BillingOrderServiceWebhookTest {
     }
 
     @Test
+    void webhookActivationFailureDoesNotMarkEventProcessed() throws Exception {
+        String body = "{\"id\":\"evt_activation_failure\",\"event\":\"payment.captured\","
+                + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_activation_failure\","
+                + "\"order_id\":\"order_activation_failure\",\"amount\":10000,\"currency\":\"INR\"}}}}";
+        BillingWebhookEvent webhookEvent = mock(BillingWebhookEvent.class);
+        when(webhookEvent.getPayloadHash()).thenReturn(hash(body));
+        when(webhookEvent.getStatus()).thenReturn("RECEIVED");
+        BillingWebhookEventRepository events = mock(BillingWebhookEventRepository.class);
+        when(events.findByProviderAndEventId("RAZORPAY", "evt_activation_failure"))
+                .thenReturn(Optional.of(webhookEvent));
+
+        var userId = java.util.UUID.randomUUID();
+        var orderId = java.util.UUID.randomUUID();
+        var planId = java.util.UUID.randomUUID();
+        var order = new BillingOrder(orderId, userId, planId, "MONTHLY",
+                new java.math.BigDecimal("100.00"), "INR");
+        order.setExternalOrderId("order_activation_failure");
+        var payment = new BillingPayment(java.util.UUID.randomUUID(), orderId, "RAZORPAY",
+                new java.math.BigDecimal("100.00"), "INR");
+        var plan = mock(com.masterlearning.platform.subscription.SubscriptionPlan.class);
+        when(plan.getCode()).thenReturn("PRO");
+
+        BillingOrderRepository orders = mock(BillingOrderRepository.class);
+        BillingPaymentRepository payments = mock(BillingPaymentRepository.class);
+        BillingInvoiceRepository invoices = mock(BillingInvoiceRepository.class);
+        SubscriptionPlanRepository plans = mock(SubscriptionPlanRepository.class);
+        UserSubscriptionService subscriptions = mock(UserSubscriptionService.class);
+        when(orders.findByExternalOrderIdForUpdate("order_activation_failure")).thenReturn(Optional.of(order));
+        when(payments.findByOrderId(orderId)).thenReturn(Optional.of(payment));
+        when(invoices.existsByOrderId(orderId)).thenReturn(false);
+        when(plans.findById(planId)).thenReturn(Optional.of(plan));
+        org.mockito.Mockito.doThrow(new IllegalStateException("subscription activation failed"))
+                .when(subscriptions).activatePending(eq(userId), eq("PRO"), eq("MONTHLY"),
+                        any(java.time.LocalDate.class), any(java.time.LocalDate.class), eq("pay_activation_failure"));
+
+        BillingOrderService service = new BillingOrderService(
+                orders, payments, invoices, mock(BillingRefundRepository.class),
+                mock(BillingRefundAttemptService.class), events, plans, subscriptions,
+                new ObjectMapper(), "test-key-id", "test-key-secret", SECRET,
+                "https://api.razorpay.com/v1");
+
+        assertThrows(IllegalStateException.class,
+                () -> service.handleRazorpayWebhook(body, signature(body)));
+
+        verify(webhookEvent, never()).processed();
+        verify(events, never()).save(webhookEvent);
+    }
+
+    @Test
     void rejectsSignedWebhookWhenGatewayAmountDoesNotMatchPayment() throws Exception {
         assertWebhookPaymentMismatchRejected("9999", "INR");
     }
