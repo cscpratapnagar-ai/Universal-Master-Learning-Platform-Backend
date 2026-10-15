@@ -196,7 +196,7 @@ public class BillingOrderService {
 
     @Transactional
     public BillingRefund refund(UUID orderId, BigDecimal amount, String reason) {
-        var order = orders.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Billing order not found"));
+        var order = orders.findByIdForUpdate(orderId).orElseThrow(() -> new IllegalArgumentException("Billing order not found"));
         if (!"PAID".equals(order.getStatus())) throw new IllegalStateException("Only paid orders can be refunded");
         var payment = payments.findByOrderId(orderId)
                 .orElseThrow(() -> new IllegalStateException("Payment record not found"));
