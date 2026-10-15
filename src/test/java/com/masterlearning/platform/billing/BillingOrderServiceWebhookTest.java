@@ -154,6 +154,28 @@ class BillingOrderServiceWebhookTest {
     }
 
     @Test
+    void providerHeaderTakesPrecedenceOverBodyEventId() throws Exception {
+        String body = "{\"id\":\"evt_body_id\",\"event\":\"payment.captured\","
+                + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_test_123\","
+                + "\"order_id\":\"order_test_123\"}}}}";
+        BillingWebhookEvent existing = mock(BillingWebhookEvent.class);
+        when(existing.getPayloadHash()).thenReturn(hash(body));
+        when(existing.getStatus()).thenReturn("PROCESSED");
+        BillingWebhookEventRepository events = mock(BillingWebhookEventRepository.class);
+        when(events.findByProviderAndEventId("RAZORPAY", "evt_header_id"))
+                .thenReturn(Optional.of(existing));
+        BillingOrderService service = service(events);
+
+        assertDoesNotThrow(() -> service.handleRazorpayWebhook(body, signature(body), "evt_header_id"));
+
+        verify(events).insertIfAbsent(any(), eq("RAZORPAY"), eq("evt_header_id"),
+                eq("payment.captured"), anyString());
+        verify(events).findByProviderAndEventId("RAZORPAY", "evt_header_id");
+        verify(events, never()).findByProviderAndEventId("RAZORPAY", "evt_body_id");
+        verify(events, never()).save(any(BillingWebhookEvent.class));
+    }
+
+    @Test
     void rejectsSupportedWebhookWithoutProviderEventIdInsteadOfUsingPaymentIdAsFallback() throws Exception {
         String body = "{\"event\":\"payment.captured\","
                 + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_test_123\","
