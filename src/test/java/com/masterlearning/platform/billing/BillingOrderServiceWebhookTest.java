@@ -54,6 +54,50 @@ class BillingOrderServiceWebhookTest {
     }
 
     @Test
+    void rejectsSignedWebhookWhenGatewayAmountDoesNotMatchPayment() throws Exception {
+        assertWebhookPaymentMismatchRejected("amount", "9999", "INR");
+    }
+
+    @Test
+    void rejectsSignedWebhookWhenGatewayCurrencyDoesNotMatchPayment() throws Exception {
+        assertWebhookPaymentMismatchRejected("amount", "10000", "USD");
+    }
+
+    private void assertWebhookPaymentMismatchRejected(String ignoredField, String amount, String currency) throws Exception {
+        String body = "{\\"id\\":\\"evt_amount_check\\",\\"event\\":\\"payment.captured\\","
+                + "\\"payload\\":{\\"payment\\":{\\"entity\\":{\\"id\\":\\"pay_test_123\\","
+                + "\\"order_id\\":\\"order_test_123\\",\\"amount\\":" + amount
+                + ",\\"currency\\":\\"" + currency + "\\"}}}}";
+        BillingWebhookEvent existing = mock(BillingWebhookEvent.class);
+        when(existing.getPayloadHash()).thenReturn(hash(body));
+        when(existing.getStatus()).thenReturn("RECEIVED");
+        BillingWebhookEventRepository events = mock(BillingWebhookEventRepository.class);
+        when(events.findByProviderAndEventId("RAZORPAY", "evt_amount_check"))
+                .thenReturn(Optional.of(existing));
+
+        var orderId = java.util.UUID.randomUUID();
+        var order = new BillingOrder(orderId, java.util.UUID.randomUUID(), java.util.UUID.randomUUID(),
+                "MONTHLY", new java.math.BigDecimal("100.00"), "INR");
+        order.setExternalOrderId("order_test_123");
+        var payment = new BillingPayment(java.util.UUID.randomUUID(), orderId, "RAZORPAY",
+                new java.math.BigDecimal("100.00"), "INR");
+        BillingOrderRepository orders = mock(BillingOrderRepository.class);
+        BillingPaymentRepository payments = mock(BillingPaymentRepository.class);
+        when(orders.findByExternalOrderIdForUpdate("order_test_123")).thenReturn(Optional.of(order));
+        when(payments.findByOrderId(orderId)).thenReturn(Optional.of(payment));
+
+        BillingOrderService service = new BillingOrderService(
+                orders, payments, mock(BillingInvoiceRepository.class), mock(BillingRefundRepository.class),
+                mock(BillingRefundAttemptService.class), events, mock(SubscriptionPlanRepository.class),
+                mock(UserSubscriptionService.class), new ObjectMapper(),
+                "test-key-id", "test-key-secret", SECRET, "https://api.razorpay.com/v1");
+
+        assertThrows(SecurityException.class, () -> service.handleRazorpayWebhook(body, signature(body)));
+        verify(payments, never()).save(any(BillingPayment.class));
+        verify(orders, never()).save(any(BillingOrder.class));
+    }
+
+    @Test
     void rejectsInvalidSignatureBeforeReadingEventStore() {
         BillingWebhookEventRepository events = mock(BillingWebhookEventRepository.class);
         BillingOrderService service = service(events);

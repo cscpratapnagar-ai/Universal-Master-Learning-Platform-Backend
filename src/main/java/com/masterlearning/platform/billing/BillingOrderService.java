@@ -170,6 +170,18 @@ public class BillingOrderService {
             if (payment.getProviderPaymentId() != null && !payment.getProviderPaymentId().equals(paymentId)) {
                 throw new IllegalStateException("Payment record is already linked to a different Razorpay payment");
             }
+
+            // A valid webhook signature proves the payload origin, not that its
+            // amount/currency matches the order we intend to activate.
+            long gatewayAmount = paymentEntity.path("amount").asLong(-1L);
+            String gatewayCurrency = paymentEntity.path("currency").asText();
+            long expectedAmount = payment.getAmount().movePointRight(2).longValueExact();
+            if (gatewayAmount < 0 || gatewayAmount != expectedAmount) {
+                throw new SecurityException("Razorpay payment amount does not match the billing order");
+            }
+            if (gatewayCurrency.isBlank() || !gatewayCurrency.equalsIgnoreCase(payment.getCurrency())) {
+                throw new SecurityException("Razorpay payment currency does not match the billing order");
+            }
             payment.capture(paymentId);
             payments.save(payment);
             order.markPaid();
