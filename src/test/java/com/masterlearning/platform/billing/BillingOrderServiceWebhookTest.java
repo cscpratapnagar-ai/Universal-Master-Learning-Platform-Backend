@@ -55,19 +55,19 @@ class BillingOrderServiceWebhookTest {
 
     @Test
     void rejectsSignedWebhookWhenGatewayAmountDoesNotMatchPayment() throws Exception {
-        assertWebhookPaymentMismatchRejected("amount", "9999", "INR");
+        assertWebhookPaymentMismatchRejected("9999", "INR");
     }
 
     @Test
     void rejectsSignedWebhookWhenGatewayCurrencyDoesNotMatchPayment() throws Exception {
-        assertWebhookPaymentMismatchRejected("amount", "10000", "USD");
+        assertWebhookPaymentMismatchRejected("10000", "USD");
     }
 
-    private void assertWebhookPaymentMismatchRejected(String ignoredField, String amount, String currency) throws Exception {
-        String body = "{\\"id\\":\\"evt_amount_check\\",\\"event\\":\\"payment.captured\\","
-                + "\\"payload\\":{\\"payment\\":{\\"entity\\":{\\"id\\":\\"pay_test_123\\","
-                + "\\"order_id\\":\\"order_test_123\\",\\"amount\\":" + amount
-                + ",\\"currency\\":\\"" + currency + "\\"}}}}";
+    private void assertWebhookPaymentMismatchRejected(String amount, String currency) throws Exception {
+        String body = "{\"id\":\"evt_amount_check\",\"event\":\"payment.captured\","
+                + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_test_123\","
+                + "\"order_id\":\"order_test_123\",\"amount\":" + amount
+                + ",\"currency\":\"" + currency + "\"}}}}";
         BillingWebhookEvent existing = mock(BillingWebhookEvent.class);
         when(existing.getPayloadHash()).thenReturn(hash(body));
         when(existing.getStatus()).thenReturn("RECEIVED");
