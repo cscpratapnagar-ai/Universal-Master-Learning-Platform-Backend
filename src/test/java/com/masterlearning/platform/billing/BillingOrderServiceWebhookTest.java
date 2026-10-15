@@ -104,6 +104,34 @@ class BillingOrderServiceWebhookTest {
     }
 
     @Test
+    void rejectsRefundWithSubCentPrecisionBeforeCallingGateway() {
+        var orderId = java.util.UUID.randomUUID();
+        var order = new BillingOrder(orderId, java.util.UUID.randomUUID(), java.util.UUID.randomUUID(),
+                "MONTHLY", new java.math.BigDecimal("100.00"), "INR");
+        order.markPaid();
+        var payment = new BillingPayment(java.util.UUID.randomUUID(), orderId, "RAZORPAY",
+                new java.math.BigDecimal("100.00"), "INR");
+        payment.capture("pay_test_123");
+
+        BillingOrderRepository orders = mock(BillingOrderRepository.class);
+        BillingPaymentRepository payments = mock(BillingPaymentRepository.class);
+        BillingRefundRepository refunds = mock(BillingRefundRepository.class);
+        when(orders.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+        when(payments.findByOrderId(orderId)).thenReturn(Optional.of(payment));
+
+        BillingOrderService service = new BillingOrderService(
+                orders, payments, mock(BillingInvoiceRepository.class), refunds,
+                mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
+                mock(UserSubscriptionService.class), new ObjectMapper(),
+                "test-key-id", "test-key-secret", SECRET, "https://api.razorpay.com/v1");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.refund(orderId, new java.math.BigDecimal("1.001"), "precision test"));
+        verify(refunds, never()).save(any(BillingRefund.class));
+        verify(refunds, never()).findByPaymentIdAndStatus(any(), anyString());
+    }
+
+    @Test
     void paymentVerificationRejectsAnotherUsersOrderBeforePaymentLookup() {
         var ownerId = java.util.UUID.randomUUID();
         var otherUserId = java.util.UUID.randomUUID();
