@@ -100,6 +100,55 @@ class BillingOrderServiceWebhookTest {
         verify(refunds, never()).save(any(BillingRefund.class));
     }
 
+    @Test
+    void paymentVerificationRejectsAnotherUsersOrderBeforePaymentLookup() {
+        var ownerId = java.util.UUID.randomUUID();
+        var otherUserId = java.util.UUID.randomUUID();
+        var orderId = java.util.UUID.randomUUID();
+        var order = new BillingOrder(orderId, ownerId, java.util.UUID.randomUUID(),
+                "MONTHLY", new java.math.BigDecimal("100.00"), "INR");
+        order.setExternalOrderId("order_gateway_123");
+        BillingOrderRepository orders = mock(BillingOrderRepository.class);
+        BillingPaymentRepository payments = mock(BillingPaymentRepository.class);
+        when(orders.findById(orderId)).thenReturn(Optional.of(order));
+        BillingOrderService service = new BillingOrderService(
+                orders, payments, mock(BillingInvoiceRepository.class), mock(BillingRefundRepository.class),
+                mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
+                mock(UserSubscriptionService.class), new ObjectMapper(),
+                "test-key-id", "test-key-secret", SECRET, "https://api.razorpay.com/v1");
+
+        assertThrows(SecurityException.class,
+                () -> service.verifyPayment(otherUserId, orderId.toString(),
+                        "order_gateway_123", "pay_123", "signature"));
+        verifyNoInteractions(payments);
+    }
+
+    @Test
+    void paymentVerificationRejectsInvalidSignatureWithoutCapturingPayment() {
+        var ownerId = java.util.UUID.randomUUID();
+        var orderId = java.util.UUID.randomUUID();
+        var order = new BillingOrder(orderId, ownerId, java.util.UUID.randomUUID(),
+                "MONTHLY", new java.math.BigDecimal("100.00"), "INR");
+        order.setExternalOrderId("order_gateway_123");
+        var payment = new BillingPayment(java.util.UUID.randomUUID(), orderId, "RAZORPAY",
+                new java.math.BigDecimal("100.00"), "INR");
+        BillingOrderRepository orders = mock(BillingOrderRepository.class);
+        BillingPaymentRepository payments = mock(BillingPaymentRepository.class);
+        when(orders.findById(orderId)).thenReturn(Optional.of(order));
+        when(payments.findByOrderId(orderId)).thenReturn(Optional.of(payment));
+        BillingOrderService service = new BillingOrderService(
+                orders, payments, mock(BillingInvoiceRepository.class), mock(BillingRefundRepository.class),
+                mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
+                mock(UserSubscriptionService.class), new ObjectMapper(),
+                "test-key-id", "test-key-secret", SECRET, "https://api.razorpay.com/v1");
+
+        assertThrows(SecurityException.class,
+                () -> service.verifyPayment(ownerId, orderId.toString(),
+                        "order_gateway_123", "pay_123", "invalid-signature"));
+        verify(payments, never()).save(any(BillingPayment.class));
+        org.junit.jupiter.api.Assertions.assertEquals("CREATED", payment.getStatus());
+    }
+
     private BillingOrderService service(BillingWebhookEventRepository events) {
         return new BillingOrderService(
                 mock(BillingOrderRepository.class),
