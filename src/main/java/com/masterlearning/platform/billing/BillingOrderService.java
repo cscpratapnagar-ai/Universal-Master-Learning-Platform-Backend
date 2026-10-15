@@ -204,6 +204,10 @@ public class BillingOrderService {
             throw new IllegalStateException("Provider payment id is missing");
         BigDecimal refundAmount = amount == null ? payment.getAmount() : amount;
         if (refundAmount.signum() <= 0) throw new IllegalArgumentException("Refund amount must be positive");
+        if (refundAmount.scale() > 2 && refundAmount.stripTrailingZeros().scale() > 2)
+            throw new IllegalArgumentException("Refund amount cannot have more than two decimal places");
+        if (reason != null && reason.length() > 500)
+            throw new IllegalArgumentException("Refund reason must be 500 characters or fewer");
 
         BigDecimal alreadyRefunded = refunds.findByPaymentIdAndStatus(payment.getId(), "REFUNDED").stream()
                 .map(BillingRefund::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
