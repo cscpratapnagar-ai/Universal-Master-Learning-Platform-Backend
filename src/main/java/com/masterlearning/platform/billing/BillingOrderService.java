@@ -134,16 +134,16 @@ public class BillingOrderService {
             if (eventId.isBlank()) throw new IllegalArgumentException("Razorpay webhook event id is missing");
             String payloadHash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                     .digest(rawBody.getBytes(StandardCharsets.UTF_8)));
-            var existingEvent = webhookEvents.findByProviderAndEventId("RAZORPAY", eventId);
-            if (existingEvent.isPresent()) {
-                BillingWebhookEvent previous = existingEvent.get();
-                if (!payloadHash.equals(previous.getPayloadHash())) {
-                    throw new SecurityException("Razorpay event id was reused with a different payload");
-                }
-                if ("PROCESSED".equals(previous.getStatus())) return;
+            // Atomic insert avoids a check-then-insert race when the gateway retries
+            // the same event concurrently. PostgreSQL waits on a conflicting insert;
+            // under READ COMMITTED the following lookup sees the committed event.
+            webhookEvents.insertIfAbsent(UUID.randomUUID(), "RAZORPAY", eventId, event, payloadHash);
+            var webhookEvent = webhookEvents.findByProviderAndEventId("RAZORPAY", eventId)
+                    .orElseThrow(() -> new IllegalStateException("Webhook event registration failed"));
+            if (!payloadHash.equals(webhookEvent.getPayloadHash())) {
+                throw new SecurityException("Razorpay event id was reused with a different payload");
             }
-            var webhookEvent = existingEvent.orElseGet(() -> webhookEvents.save(
-                    new BillingWebhookEvent("RAZORPAY", eventId, event, payloadHash)));
+            if ("PROCESSED".equals(webhookEvent.getStatus())) return;
 
             JsonNode paymentEntity = root.path("payload").path("payment").path("entity");
             String paymentId = paymentEntity.path("id").asText();
