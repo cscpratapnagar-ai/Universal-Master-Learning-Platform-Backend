@@ -1,5 +1,5 @@
 CREATE TABLE learning_intervention_outcomes (
- id UUID PRIMARY KEY, enrollment_id UUID NOT NULL REFERENCES enrollments(id) ON DELETE CASCADE,
+ id UUID PRIMARY KEY, enrollment_id UUID NOT NULL REFERENCES course_enrollments(id) ON DELETE CASCADE,
  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, intervention_type VARCHAR(60) NOT NULL,
  target_lesson_id UUID, outcome VARCHAR(40) NOT NULL, mastery_delta DOUBLE PRECISION, notes TEXT,
  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
