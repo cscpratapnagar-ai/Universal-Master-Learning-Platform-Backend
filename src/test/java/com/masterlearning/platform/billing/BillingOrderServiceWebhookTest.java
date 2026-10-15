@@ -52,6 +52,26 @@ class BillingOrderServiceWebhookTest {
         verify(events, never()).save(any(BillingWebhookEvent.class));
     }
 
+    @Test
+    void rejectsInvalidSignatureBeforeReadingEventStore() {
+        BillingWebhookEventRepository events = mock(BillingWebhookEventRepository.class);
+        BillingOrderService service = service(events);
+
+        assertThrows(SecurityException.class,
+                () -> service.handleRazorpayWebhook(validPayload(), "invalid-signature"));
+        verifyNoInteractions(events);
+    }
+
+    @Test
+    void ignoresUnsupportedSignedEventsWithoutPersistingThem() throws Exception {
+        String body = "{\"id\":\"evt_refund_123\",\"event\":\"refund.created\"}";
+        BillingWebhookEventRepository events = mock(BillingWebhookEventRepository.class);
+        BillingOrderService service = service(events);
+
+        assertDoesNotThrow(() -> service.handleRazorpayWebhook(body, signature(body)));
+        verifyNoInteractions(events);
+    }
+
     private BillingOrderService service(BillingWebhookEventRepository events) {
         return new BillingOrderService(
                 mock(BillingOrderRepository.class),
