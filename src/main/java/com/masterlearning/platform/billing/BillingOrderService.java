@@ -124,8 +124,12 @@ public class BillingOrderService {
             if (!"order.paid".equals(event) && !"payment.captured".equals(event)) {
                 return;
             }
-            String resolvedEventId = root.path("payload").path("payment").path("entity").path("id").asText();
-            if (resolvedEventId.isBlank()) resolvedEventId = root.path("id").asText();
+            // Razorpay's top-level id identifies the webhook event. Payment ids can be
+            // shared by different event types (for example order.paid and payment.captured).
+            String resolvedEventId = root.path("id").asText();
+            if (resolvedEventId.isBlank()) {
+                resolvedEventId = root.path("payload").path("payment").path("entity").path("id").asText();
+            }
             final String eventId = resolvedEventId;
             if (eventId.isBlank()) throw new IllegalArgumentException("Razorpay webhook event id is missing");
             String payloadHash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
