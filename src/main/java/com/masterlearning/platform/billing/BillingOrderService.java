@@ -137,10 +137,10 @@ public class BillingOrderService {
             var existingEvent = webhookEvents.findByProviderAndEventId("RAZORPAY", eventId);
             if (existingEvent.isPresent()) {
                 BillingWebhookEvent previous = existingEvent.get();
-                if ("PROCESSED".equals(previous.getStatus())) return;
                 if (!payloadHash.equals(previous.getPayloadHash())) {
                     throw new SecurityException("Razorpay event id was reused with a different payload");
                 }
+                if ("PROCESSED".equals(previous.getStatus())) return;
             }
             var webhookEvent = existingEvent.orElseGet(() -> webhookEvents.save(
                     new BillingWebhookEvent("RAZORPAY", eventId, event, payloadHash)));
