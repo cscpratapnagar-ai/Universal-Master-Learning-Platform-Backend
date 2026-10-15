@@ -88,7 +88,7 @@ public class BillingOrderService {
 
     @Transactional
     public void verifyPayment(UUID userId, String internalOrderId, String razorpayOrderId, String razorpayPaymentId, String razorpaySignature) {
-        var order = orders.findById(UUID.fromString(internalOrderId)).orElseThrow(() -> new IllegalArgumentException("Billing order not found"));
+        var order = orders.findByIdForUpdate(UUID.fromString(internalOrderId)).orElseThrow(() -> new IllegalArgumentException("Billing order not found"));
         if (!order.getUserId().equals(userId)) throw new SecurityException("Billing order does not belong to current user");
         if ("PAID".equals(order.getStatus())) return;
         if (!razorpayOrderId.equals(order.getExternalOrderId())) throw new SecurityException("Gateway order mismatch");
@@ -153,7 +153,7 @@ public class BillingOrderService {
                 gatewayOrderId = root.path("payload").path("order").path("entity").path("id").asText();
             }
 
-            var order = orders.findByExternalOrderId(gatewayOrderId)
+            var order = orders.findByExternalOrderIdForUpdate(gatewayOrderId)
                     .orElseThrow(() -> new IllegalArgumentException("Billing order not found for Razorpay order"));
 
             if ("PAID".equals(order.getStatus())) {
