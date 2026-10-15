@@ -98,6 +98,7 @@ class BillingOrderServiceWebhookTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> service.refund(orderId, new java.math.BigDecimal("100.01"), "test over-refund"));
+        verify(orders).findByIdForUpdate(orderId);
         verify(refunds, never()).save(any(BillingRefund.class));
     }
 
