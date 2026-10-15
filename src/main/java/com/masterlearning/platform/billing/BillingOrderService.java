@@ -157,12 +157,6 @@ public class BillingOrderService {
             var order = orders.findByExternalOrderIdForUpdate(gatewayOrderId)
                     .orElseThrow(() -> new IllegalArgumentException("Billing order not found for Razorpay order"));
 
-            if ("PAID".equals(order.getStatus())) {
-                webhookEvent.processed();
-                webhookEvents.save(webhookEvent);
-                return;
-            }
-
             var payment = payments.findByOrderId(order.getId())
                     .orElseThrow(() -> new IllegalStateException("Payment record not found"));
 
@@ -182,6 +176,15 @@ public class BillingOrderService {
             if (gatewayCurrency.isBlank() || !gatewayCurrency.equalsIgnoreCase(payment.getCurrency())) {
                 throw new SecurityException("Razorpay payment currency does not match the billing order");
             }
+
+            // A paid order is idempotent only for the exact payment already recorded.
+            // Validate the provider payment before acknowledging another event for it.
+            if ("PAID".equals(order.getStatus())) {
+                webhookEvent.processed();
+                webhookEvents.save(webhookEvent);
+                return;
+            }
+
             payment.capture(paymentId);
             payments.save(payment);
             order.markPaid();

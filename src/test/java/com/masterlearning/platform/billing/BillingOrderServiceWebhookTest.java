@@ -63,6 +63,43 @@ class BillingOrderServiceWebhookTest {
         assertWebhookPaymentMismatchRejected("10000", "USD");
     }
 
+    @Test
+    void rejectsDifferentPaymentForAnAlreadyPaidOrder() throws Exception {
+        String body = "{\"id\":\"evt_second_payment\",\"event\":\"payment.captured\","
+                + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_second_123\","
+                + "\"order_id\":\"order_paid_123\",\"amount\":10000,\"currency\":\"INR\"}}}}";
+        BillingWebhookEvent existing = mock(BillingWebhookEvent.class);
+        when(existing.getPayloadHash()).thenReturn(hash(body));
+        when(existing.getStatus()).thenReturn("RECEIVED");
+        BillingWebhookEventRepository events = mock(BillingWebhookEventRepository.class);
+        when(events.findByProviderAndEventId("RAZORPAY", "evt_second_payment"))
+                .thenReturn(Optional.of(existing));
+
+        var orderId = java.util.UUID.randomUUID();
+        var order = new BillingOrder(orderId, java.util.UUID.randomUUID(), java.util.UUID.randomUUID(),
+                "MONTHLY", new java.math.BigDecimal("100.00"), "INR");
+        order.setExternalOrderId("order_paid_123");
+        order.markPaid();
+        var payment = new BillingPayment(java.util.UUID.randomUUID(), orderId, "RAZORPAY",
+                new java.math.BigDecimal("100.00"), "INR");
+        payment.capture("pay_original_123");
+        BillingOrderRepository orders = mock(BillingOrderRepository.class);
+        BillingPaymentRepository payments = mock(BillingPaymentRepository.class);
+        when(orders.findByExternalOrderIdForUpdate("order_paid_123")).thenReturn(Optional.of(order));
+        when(payments.findByOrderId(orderId)).thenReturn(Optional.of(payment));
+
+        BillingOrderService service = new BillingOrderService(
+                orders, payments, mock(BillingInvoiceRepository.class), mock(BillingRefundRepository.class),
+                mock(BillingRefundAttemptService.class), events, mock(SubscriptionPlanRepository.class),
+                mock(UserSubscriptionService.class), new ObjectMapper(),
+                "test-key-id", "test-key-secret", SECRET, "https://api.razorpay.com/v1");
+
+        assertThrows(IllegalStateException.class,
+                () -> service.handleRazorpayWebhook(body, signature(body)));
+        verify(events, never()).save(any(BillingWebhookEvent.class));
+        verify(payments, never()).save(any(BillingPayment.class));
+    }
+
     private void assertWebhookPaymentMismatchRejected(String amount, String currency) throws Exception {
         String body = "{\"id\":\"evt_amount_check\",\"event\":\"payment.captured\","
                 + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_test_123\","
