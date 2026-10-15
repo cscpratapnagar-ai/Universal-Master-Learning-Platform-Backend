@@ -172,7 +172,7 @@ class BillingOrderServiceWebhookTest {
 
     @Test
     void rejectsStringEncodedGatewayAmount() throws Exception {
-        assertWebhookPaymentMismatchRejected("\\"10000\\"", "INR");
+        assertWebhookPaymentMismatchRejected("\"10000\"", "INR");
     }
 
     @Test
