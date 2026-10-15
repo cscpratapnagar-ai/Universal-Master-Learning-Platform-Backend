@@ -135,6 +135,19 @@ class BillingOrderServiceWebhookTest {
     }
 
     @Test
+    void rejectsSupportedWebhookWithoutProviderEventIdInsteadOfUsingPaymentIdAsFallback() throws Exception {
+        String body = "{\"event\":\"payment.captured\","
+                + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_test_123\","
+                + "\"order_id\":\"order_test_123\"}}}}";
+        BillingWebhookEventRepository events = mock(BillingWebhookEventRepository.class);
+        BillingOrderService service = service(events);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.handleRazorpayWebhook(body, signature(body)));
+        verifyNoInteractions(events);
+    }
+
+    @Test
     void rejectsInvalidSignatureBeforeReadingEventStore() {
         BillingWebhookEventRepository events = mock(BillingWebhookEventRepository.class);
         BillingOrderService service = service(events);

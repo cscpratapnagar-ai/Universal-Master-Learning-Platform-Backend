@@ -137,14 +137,11 @@ public class BillingOrderService {
             if (!"order.paid".equals(event) && !"payment.captured".equals(event)) {
                 return;
             }
-            // Razorpay's top-level id identifies the webhook event. Payment ids can be
-            // shared by different event types (for example order.paid and payment.captured).
-            String resolvedEventId = root.path("id").asText();
-            if (resolvedEventId.isBlank()) {
-                resolvedEventId = root.path("payload").path("payment").path("entity").path("id").asText();
-            }
-            final String eventId = resolvedEventId;
+            // Only the provider event id is a safe deduplication key. A payment id can
+            // appear in multiple event types and must not be used as a fallback event id.
+            final String eventId = root.path("id").asText();
             if (eventId.isBlank()) throw new IllegalArgumentException("Razorpay webhook event id is missing");
+            if (eventId.length() > 180) throw new IllegalArgumentException("Razorpay webhook event id is too long");
             String payloadHash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                     .digest(rawBody.getBytes(StandardCharsets.UTF_8)));
             // Atomic insert avoids a check-then-insert race when the gateway retries
