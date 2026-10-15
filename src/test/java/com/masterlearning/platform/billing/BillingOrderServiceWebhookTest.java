@@ -139,7 +139,12 @@ class BillingOrderServiceWebhookTest {
         String body = "{\\"event\\":\\"payment.captured\\","
                 + "\\"payload\\":{\\"payment\\":{\\"entity\\":{\\"id\\":\\"pay_test_123\\","
                 + "\\"order_id\\":\\"order_test_123\\"}}}}";
+        BillingWebhookEvent existing = mock(BillingWebhookEvent.class);
+        when(existing.getPayloadHash()).thenReturn(hash(body));
+        when(existing.getStatus()).thenReturn("RECEIVED");
         BillingWebhookEventRepository events = mock(BillingWebhookEventRepository.class);
+        when(events.findByProviderAndEventId("RAZORPAY", "evt_header_123"))
+                .thenReturn(Optional.of(existing));
         BillingOrderService service = service(events);
         String signature = signature(body);
 
