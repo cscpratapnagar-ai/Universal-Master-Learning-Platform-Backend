@@ -49,6 +49,7 @@ class BillingOrderServiceWebhookTest {
 
         assertThrows(SecurityException.class,
                 () -> service.handleRazorpayWebhook(body, signature(body)));
+        verify(events).insertIfAbsent(any(), eq("RAZORPAY"), eq("evt_test_123"), eq("payment.captured"), anyString());
         verify(events, never()).save(any(BillingWebhookEvent.class));
     }
 
@@ -187,6 +188,7 @@ class BillingOrderServiceWebhookTest {
     }
 
     private void verifyNoInteractionsExceptLookup(BillingWebhookEventRepository events) {
+        verify(events).insertIfAbsent(any(), eq("RAZORPAY"), eq("evt_test_123"), eq("payment.captured"), anyString());
         verify(events).findByProviderAndEventId("RAZORPAY", "evt_test_123");
         verify(events, never()).save(any(BillingWebhookEvent.class));
     }
