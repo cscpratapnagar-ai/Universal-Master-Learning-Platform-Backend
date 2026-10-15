@@ -132,8 +132,11 @@ public class BillingOrderService {
                     .digest(rawBody.getBytes(StandardCharsets.UTF_8)));
             var existingEvent = webhookEvents.findByProviderAndEventId("RAZORPAY", eventId);
             if (existingEvent.isPresent()) {
-                if ("PROCESSED".equals(existingEvent.get().getStatus())) return;
-                if ("RECEIVED".equals(existingEvent.get().getStatus())) return;
+                BillingWebhookEvent previous = existingEvent.get();
+                if ("PROCESSED".equals(previous.getStatus())) return;
+                if (!payloadHash.equals(previous.getPayloadHash())) {
+                    throw new SecurityException("Razorpay event id was reused with a different payload");
+                }
             }
             var webhookEvent = existingEvent.orElseGet(() -> webhookEvents.save(
                     new BillingWebhookEvent("RAZORPAY", eventId, event, payloadHash)));
@@ -150,6 +153,8 @@ public class BillingOrderService {
                     .orElseThrow(() -> new IllegalArgumentException("Billing order not found for Razorpay order"));
 
             if ("PAID".equals(order.getStatus())) {
+                webhookEvent.processed();
+                webhookEvents.save(webhookEvent);
                 return;
             }
 
