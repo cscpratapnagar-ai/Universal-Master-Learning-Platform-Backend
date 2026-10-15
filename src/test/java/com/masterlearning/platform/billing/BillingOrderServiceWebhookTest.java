@@ -93,7 +93,7 @@ class BillingOrderServiceWebhookTest {
 
         BillingOrderService service = new BillingOrderService(
                 orders, payments, mock(BillingInvoiceRepository.class), refunds,
-                mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
+                mock(BillingRefundAttemptService.class), mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
                 mock(UserSubscriptionService.class), new ObjectMapper(),
                 "test-key-id", "test-key-secret", SECRET, "https://api.razorpay.com/v1");
 
@@ -121,7 +121,7 @@ class BillingOrderServiceWebhookTest {
 
         BillingOrderService service = new BillingOrderService(
                 orders, payments, mock(BillingInvoiceRepository.class), refunds,
-                mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
+                mock(BillingRefundAttemptService.class), mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
                 mock(UserSubscriptionService.class), new ObjectMapper(),
                 "test-key-id", "test-key-secret", SECRET, "https://api.razorpay.com/v1");
 
@@ -149,7 +149,7 @@ class BillingOrderServiceWebhookTest {
 
         BillingOrderService service = new BillingOrderService(
                 orders, payments, mock(BillingInvoiceRepository.class), refunds,
-                mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
+                mock(BillingRefundAttemptService.class), mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
                 mock(UserSubscriptionService.class), new ObjectMapper(),
                 "test-key-id", "test-key-secret", SECRET, "https://api.razorpay.com/v1");
 
@@ -173,7 +173,7 @@ class BillingOrderServiceWebhookTest {
         when(orders.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
         BillingOrderService service = new BillingOrderService(
                 orders, payments, mock(BillingInvoiceRepository.class), mock(BillingRefundRepository.class),
-                mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
+                mock(BillingRefundAttemptService.class), mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
                 mock(UserSubscriptionService.class), new ObjectMapper(),
                 "test-key-id", "test-key-secret", SECRET, "https://api.razorpay.com/v1");
 
@@ -199,7 +199,7 @@ class BillingOrderServiceWebhookTest {
         when(payments.findByOrderId(orderId)).thenReturn(Optional.of(payment));
         BillingOrderService service = new BillingOrderService(
                 orders, payments, mock(BillingInvoiceRepository.class), mock(BillingRefundRepository.class),
-                mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
+                mock(BillingRefundAttemptService.class), mock(BillingWebhookEventRepository.class), mock(SubscriptionPlanRepository.class),
                 mock(UserSubscriptionService.class), new ObjectMapper(),
                 "test-key-id", "test-key-secret", SECRET, "https://api.razorpay.com/v1");
 
@@ -216,7 +216,7 @@ class BillingOrderServiceWebhookTest {
                 mock(BillingPaymentRepository.class),
                 mock(BillingInvoiceRepository.class),
                 mock(BillingRefundRepository.class),
-                events,
+                mock(BillingRefundAttemptService.class), events,
                 mock(SubscriptionPlanRepository.class),
                 mock(UserSubscriptionService.class),
                 new ObjectMapper(),
