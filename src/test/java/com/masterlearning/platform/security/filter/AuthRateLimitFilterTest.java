@@ -10,9 +10,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class AuthRateLimitFilterTest {
+    private ObjectMapper objectMapper() {
+        return new ObjectMapper().findAndRegisterModules();
+    }
+
     @Test
     void limitsLoginRequestsPerClientWithinOneMinute() throws Exception {
-        AuthRateLimitFilter filter = new AuthRateLimitFilter(new ObjectMapper());
+        AuthRateLimitFilter filter = new AuthRateLimitFilter(objectMapper());
         AtomicInteger allowed = new AtomicInteger();
 
         for (int i = 0; i < 6; i++) {
@@ -35,7 +39,7 @@ class AuthRateLimitFilterTest {
 
     @Test
     void doesNotLimitUnrelatedEndpoints() throws Exception {
-        AuthRateLimitFilter filter = new AuthRateLimitFilter(new ObjectMapper());
+        AuthRateLimitFilter filter = new AuthRateLimitFilter(objectMapper());
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/courses");
         MockHttpServletResponse response = new MockHttpServletResponse();
         AtomicInteger allowed = new AtomicInteger();
