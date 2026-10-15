@@ -184,10 +184,14 @@ public class BillingOrderService {
 
             // A valid webhook signature proves the payload origin, not that its
             // amount/currency matches the order we intend to activate.
-            long gatewayAmount = paymentEntity.path("amount").asLong(-1L);
+            JsonNode gatewayAmountNode = paymentEntity.path("amount");
             String gatewayCurrency = paymentEntity.path("currency").asText();
             long expectedAmount = payment.getAmount().movePointRight(2).longValueExact();
-            if (gatewayAmount < 0 || gatewayAmount != expectedAmount) {
+            // Gateway amounts are integer paise. Do not let Jackson coerce a decimal
+            // or string into a long and accidentally accept a malformed amount.
+            if (!gatewayAmountNode.isIntegralNumber()
+                    || gatewayAmountNode.longValue() < 0
+                    || gatewayAmountNode.longValue() != expectedAmount) {
                 throw new SecurityException("Razorpay payment amount does not match the billing order");
             }
             if (gatewayCurrency.isBlank() || !gatewayCurrency.equalsIgnoreCase(payment.getCurrency())) {

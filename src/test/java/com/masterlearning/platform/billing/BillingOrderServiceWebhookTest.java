@@ -166,6 +166,11 @@ class BillingOrderServiceWebhookTest {
     }
 
     @Test
+    void rejectsFractionalGatewayAmountInsteadOfTruncatingIt() throws Exception {
+        assertWebhookPaymentMismatchRejected("10000.9", "INR");
+    }
+
+    @Test
     void rejectsDifferentPaymentForAnAlreadyPaidOrder() throws Exception {
         String body = "{\"id\":\"evt_second_payment\",\"event\":\"payment.captured\","
                 + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_second_123\","
