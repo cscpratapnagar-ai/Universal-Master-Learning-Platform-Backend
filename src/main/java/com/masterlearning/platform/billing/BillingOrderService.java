@@ -222,6 +222,7 @@ public class BillingOrderService {
         // If the gateway call times out or the surrounding transaction rolls back,
         // operators still have a durable record to reconcile.
         refundAttempts.recordAttempt(refund);
+        String refundId;
         try {
             var body = new java.util.LinkedHashMap<String,Object>();
             body.put("amount", refundAmount.movePointRight(2).longValueExact());
@@ -230,24 +231,27 @@ public class BillingOrderService {
                     .headers(h -> h.setBasicAuth(keyId, keySecret))
                     .body(body).retrieve().body(String.class);
             JsonNode node = mapper.readTree(raw);
-            String refundId = node.path("id").asText();
+            refundId = node.path("id").asText();
             if (refundId.isBlank()) throw new IllegalStateException("Razorpay did not return refund id");
-            refund = refundAttempts.markRefunded(refund.getId(), refundId);
-            if (refundAmount.compareTo(refundable) == 0) {
-                order.refund();
-                payment.refund();
-                payments.save(payment);
-                subscriptions.cancelForRefund(order.getUserId());
-                invoicesRepository.findByOrderId(orderId)
-                        .ifPresent(BillingInvoice::markRefunded);
-            }
         } catch (Exception ex) {
             try {
                 refundAttempts.markFailed(refund.getId());
             } catch (Exception persistenceError) {
                 ex.addSuppressed(persistenceError);
             }
-            throw new IllegalStateException("Unable to process refund; reconcile the persisted refund attempt before retrying", ex);
+            throw new IllegalStateException("Unable to confirm refund with gateway; reconcile the persisted refund attempt before retrying", ex);
+        }
+
+        // Do not mark the gateway refund as failed if a later local subscription or
+        // invoice update fails. Leaving an attempt unresolved is safer to reconcile.
+        refund = refundAttempts.markRefunded(refund.getId(), refundId);
+        if (refundAmount.compareTo(refundable) == 0) {
+            order.refund();
+            payment.refund();
+            payments.save(payment);
+            subscriptions.cancelForRefund(order.getUserId());
+            invoicesRepository.findByOrderId(orderId)
+                    .ifPresent(BillingInvoice::markRefunded);
         }
         return refund;
     }
