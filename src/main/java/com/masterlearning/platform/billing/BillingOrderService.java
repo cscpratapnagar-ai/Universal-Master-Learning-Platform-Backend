@@ -25,6 +25,7 @@ public class BillingOrderService {
     private final BillingPaymentRepository payments;
     private final BillingInvoiceRepository invoicesRepository;
     private final BillingRefundRepository refunds;
+    private final BillingRefundAttemptService refundAttempts;
     private final BillingWebhookEventRepository webhookEvents;
     private final SubscriptionPlanRepository plans;
     private final UserSubscriptionService subscriptions;
@@ -34,13 +35,13 @@ public class BillingOrderService {
     private final String webhookSecret;
     private final RestClient razorpay;
 
-    public BillingOrderService(BillingOrderRepository orders, BillingPaymentRepository payments, BillingInvoiceRepository invoices, BillingRefundRepository refunds, BillingWebhookEventRepository webhookEvents,
+    public BillingOrderService(BillingOrderRepository orders, BillingPaymentRepository payments, BillingInvoiceRepository invoices, BillingRefundRepository refunds, BillingRefundAttemptService refundAttempts, BillingWebhookEventRepository webhookEvents,
             SubscriptionPlanRepository plans, UserSubscriptionService subscriptions, ObjectMapper mapper,
             @Value("${app.payment.razorpay.key-id:}") String keyId,
             @Value("${app.payment.razorpay.key-secret:}") String keySecret,
             @Value("${app.payment.razorpay.webhook-secret:}") String webhookSecret,
             @Value("${app.payment.razorpay.base-url:https://api.razorpay.com/v1}") String baseUrl) {
-        this.orders = orders; this.payments = payments; this.invoicesRepository = invoices; this.refunds = refunds; this.webhookEvents = webhookEvents; this.plans = plans; this.subscriptions = subscriptions;
+        this.orders = orders; this.payments = payments; this.invoicesRepository = invoices; this.refunds = refunds; this.refundAttempts = refundAttempts; this.webhookEvents = webhookEvents; this.plans = plans; this.subscriptions = subscriptions;
         this.mapper = mapper; this.keyId = keyId == null ? "" : keyId.trim(); this.keySecret = keySecret == null ? "" : keySecret.trim(); this.webhookSecret = webhookSecret == null ? "" : webhookSecret.trim();
         this.razorpay = RestClient.builder().baseUrl(baseUrl).build();
     }
@@ -217,6 +218,10 @@ public class BillingOrderService {
 
         var refund = new BillingRefund(UUID.randomUUID(), payment.getId(), orderId, order.getUserId(),
                 "RAZORPAY", refundAmount, payment.getCurrency(), reason);
+        // Commit the attempt independently before making the external side effect.
+        // If the gateway call times out or the surrounding transaction rolls back,
+        // operators still have a durable record to reconcile.
+        refundAttempts.recordAttempt(refund);
         try {
             var body = new java.util.LinkedHashMap<String,Object>();
             body.put("amount", refundAmount.movePointRight(2).longValueExact());
@@ -227,7 +232,7 @@ public class BillingOrderService {
             JsonNode node = mapper.readTree(raw);
             String refundId = node.path("id").asText();
             if (refundId.isBlank()) throw new IllegalStateException("Razorpay did not return refund id");
-            refund.refunded(refundId);
+            refund = refundAttempts.markRefunded(refund.getId(), refundId);
             if (refundAmount.compareTo(refundable) == 0) {
                 order.refund();
                 payment.refund();
@@ -237,10 +242,14 @@ public class BillingOrderService {
                         .ifPresent(BillingInvoice::markRefunded);
             }
         } catch (Exception ex) {
-            refund.failed();
-            throw new IllegalStateException("Unable to process refund", ex);
+            try {
+                refundAttempts.markFailed(refund.getId());
+            } catch (Exception persistenceError) {
+                ex.addSuppressed(persistenceError);
+            }
+            throw new IllegalStateException("Unable to process refund; reconcile the persisted refund attempt before retrying", ex);
         }
-        return refunds.save(refund);
+        return refund;
     }
 
     private void issueInvoice(BillingOrder order) {
