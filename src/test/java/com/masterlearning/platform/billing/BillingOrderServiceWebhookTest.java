@@ -86,6 +86,7 @@ class BillingOrderServiceWebhookTest {
         BillingPaymentRepository payments = mock(BillingPaymentRepository.class);
         BillingRefundRepository refunds = mock(BillingRefundRepository.class);
         when(orders.findById(orderId)).thenReturn(Optional.of(order));
+        when(orders.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
         when(payments.findByOrderId(orderId)).thenReturn(Optional.of(payment));
         when(refunds.findByPaymentIdAndStatus(payment.getId(), "REFUNDED")).thenReturn(java.util.List.of());
 
