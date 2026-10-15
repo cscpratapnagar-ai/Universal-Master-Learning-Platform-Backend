@@ -91,8 +91,12 @@ public class BillingOrderService {
     public void verifyPayment(UUID userId, String internalOrderId, String razorpayOrderId, String razorpayPaymentId, String razorpaySignature) {
         var order = orders.findByIdForUpdate(UUID.fromString(internalOrderId)).orElseThrow(() -> new IllegalArgumentException("Billing order not found"));
         if (!order.getUserId().equals(userId)) throw new SecurityException("Billing order does not belong to current user");
-        if ("PAID".equals(order.getStatus())) return;
-        if (!razorpayOrderId.equals(order.getExternalOrderId())) throw new SecurityException("Gateway order mismatch");
+        if (razorpayOrderId == null || !razorpayOrderId.equals(order.getExternalOrderId())) {
+            throw new SecurityException("Gateway order mismatch");
+        }
+        if (razorpayPaymentId == null || razorpayPaymentId.isBlank()) {
+            throw new SecurityException("Gateway payment id is required");
+        }
         String expected = hmacHex(order.getExternalOrderId() + "|" + razorpayPaymentId, keySecret);
         if (razorpaySignature == null || !java.security.MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), razorpaySignature.getBytes(StandardCharsets.UTF_8)))
             throw new SecurityException("Invalid payment signature");
@@ -101,6 +105,14 @@ public class BillingOrderService {
                 .orElseThrow(() -> new IllegalStateException("Payment record not found"));
         if (payment.getProviderPaymentId() != null && !payment.getProviderPaymentId().equals(razorpayPaymentId)) {
             throw new SecurityException("Payment record is already linked to a different Razorpay payment");
+        }
+        // Idempotent verification must still prove the caller supplied the same
+        // provider payment that was originally captured for this paid order.
+        if ("PAID".equals(order.getStatus())) {
+            if (!razorpayPaymentId.equals(payment.getProviderPaymentId())) {
+                throw new SecurityException("Paid order is linked to a different Razorpay payment");
+            }
+            return;
         }
         payment.capture(razorpayPaymentId); payments.save(payment); order.markPaid(); orders.save(order);
         issueInvoice(order);

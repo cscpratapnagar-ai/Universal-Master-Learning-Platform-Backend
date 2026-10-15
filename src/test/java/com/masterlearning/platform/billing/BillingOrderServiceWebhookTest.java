@@ -299,6 +299,65 @@ class BillingOrderServiceWebhookTest {
     }
 
     @Test
+    void paidOrderVerificationRejectsDifferentPaymentId() throws Exception {
+        var ownerId = java.util.UUID.randomUUID();
+        var orderId = java.util.UUID.randomUUID();
+        var order = new BillingOrder(orderId, ownerId, java.util.UUID.randomUUID(),
+                "MONTHLY", new java.math.BigDecimal("100.00"), "INR");
+        order.setExternalOrderId("order_gateway_123");
+        order.markPaid();
+        var payment = new BillingPayment(java.util.UUID.randomUUID(), orderId, "RAZORPAY",
+                new java.math.BigDecimal("100.00"), "INR");
+        payment.capture("pay_original_123");
+        BillingOrderRepository orders = mock(BillingOrderRepository.class);
+        BillingPaymentRepository payments = mock(BillingPaymentRepository.class);
+        when(orders.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+        when(payments.findByOrderId(orderId)).thenReturn(Optional.of(payment));
+        BillingOrderService service = new BillingOrderService(
+                orders, payments, mock(BillingInvoiceRepository.class), mock(BillingRefundRepository.class),
+                mock(BillingRefundAttemptService.class), mock(BillingWebhookEventRepository.class),
+                mock(SubscriptionPlanRepository.class), mock(UserSubscriptionService.class),
+                new ObjectMapper(), "test-key-id", "test-key-secret", SECRET,
+                "https://api.razorpay.com/v1");
+
+        String paymentId = "pay_attacker_456";
+        String signature = hmac("order_gateway_123|" + paymentId, "test-key-secret");
+        assertThrows(SecurityException.class, () -> service.verifyPayment(ownerId, orderId.toString(),
+                "order_gateway_123", paymentId, signature));
+        verify(payments, never()).save(any(BillingPayment.class));
+        verify(orders, never()).save(any(BillingOrder.class));
+    }
+
+    @Test
+    void paidOrderVerificationIsIdempotentForTheOriginalPayment() throws Exception {
+        var ownerId = java.util.UUID.randomUUID();
+        var orderId = java.util.UUID.randomUUID();
+        var order = new BillingOrder(orderId, ownerId, java.util.UUID.randomUUID(),
+                "MONTHLY", new java.math.BigDecimal("100.00"), "INR");
+        order.setExternalOrderId("order_gateway_123");
+        order.markPaid();
+        var payment = new BillingPayment(java.util.UUID.randomUUID(), orderId, "RAZORPAY",
+                new java.math.BigDecimal("100.00"), "INR");
+        payment.capture("pay_original_123");
+        BillingOrderRepository orders = mock(BillingOrderRepository.class);
+        BillingPaymentRepository payments = mock(BillingPaymentRepository.class);
+        when(orders.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+        when(payments.findByOrderId(orderId)).thenReturn(Optional.of(payment));
+        BillingOrderService service = new BillingOrderService(
+                orders, payments, mock(BillingInvoiceRepository.class), mock(BillingRefundRepository.class),
+                mock(BillingRefundAttemptService.class), mock(BillingWebhookEventRepository.class),
+                mock(SubscriptionPlanRepository.class), mock(UserSubscriptionService.class),
+                new ObjectMapper(), "test-key-id", "test-key-secret", SECRET,
+                "https://api.razorpay.com/v1");
+
+        String signature = hmac("order_gateway_123|pay_original_123", "test-key-secret");
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> service.verifyPayment(ownerId, orderId.toString(),
+                "order_gateway_123", "pay_original_123", signature));
+        verify(payments, never()).save(any(BillingPayment.class));
+        verify(orders, never()).save(any(BillingOrder.class));
+    }
+
+    @Test
     void paymentVerificationRejectsInvalidSignatureWithoutCapturingPayment() {
         var ownerId = java.util.UUID.randomUUID();
         var orderId = java.util.UUID.randomUUID();
@@ -345,6 +404,12 @@ class BillingOrderServiceWebhookTest {
         return "{\"id\":\"evt_test_123\",\"event\":\"payment.captured\","
                 + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_test_123\","
                 + "\"order_id\":\"order_test_123\"}}}}";
+    }
+
+    private String hmac(String payload, String secret) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        return HexFormat.of().formatHex(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
     }
 
     private String signature(String body) throws Exception {
