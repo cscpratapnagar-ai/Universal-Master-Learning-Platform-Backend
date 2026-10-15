@@ -201,6 +201,13 @@ public class BillingOrderService {
             // A paid order is idempotent only for the exact payment already recorded.
             // Validate the provider payment before acknowledging another event for it.
             if ("PAID".equals(order.getStatus())) {
+                // A paid order must be tied to the exact provider payment already
+                // captured. A missing local provider id is an inconsistent state,
+                // not a reason to acknowledge a new webhook as a successful retry.
+                if (!paymentId.equals(payment.getProviderPaymentId())) {
+                    throw new IllegalStateException(
+                            "Paid order is linked to a different or missing Razorpay payment");
+                }
                 webhookEvent.processed();
                 webhookEvents.save(webhookEvent);
                 return;
