@@ -234,9 +234,9 @@ class BillingOrderServiceWebhookTest {
 
     @Test
     void rejectsWebhookForPaidOrderWhenRecordedProviderPaymentIdIsMissing() throws Exception {
-        String body = "{\\"id\\":\\"evt_paid_missing_payment_link\\",\\"event\\":\\"payment.captured\\","
-                + "\\"payload\\":{\\"payment\\":{\\"entity\\":{\\"id\\":\\"pay_new_123\\","
-                + "\\"order_id\\":\\"order_paid_missing_link\\",\\"amount\\":10000,\\"currency\\":\\"INR\\"}}}}";
+        String body = "{\"id\":\"evt_paid_missing_payment_link\",\"event\":\"payment.captured\","
+                + "\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_new_123\","
+                + "\"order_id\":\"order_paid_missing_link\",\"amount\":10000,\"currency\":\"INR\"}}}}";
         BillingWebhookEvent existing = mock(BillingWebhookEvent.class);
         when(existing.getPayloadHash()).thenReturn(hash(body));
         when(existing.getStatus()).thenReturn("RECEIVED");
