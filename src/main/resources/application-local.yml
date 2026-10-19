@@ -3,8 +3,8 @@ spring:
     banner-mode: console
 
   datasource:
-    # Local development uses the Docker pgvector container exposed on host port 5433.
-    url: ${DB_URL:jdbc:postgresql://localhost:5433/master_learning}
+    # Use IPv4 explicitly on Windows/Docker Desktop to avoid localhost IPv6/WSL relay routing.
+    url: ${DB_URL:jdbc:postgresql://127.0.0.1:5433/master_learning}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
