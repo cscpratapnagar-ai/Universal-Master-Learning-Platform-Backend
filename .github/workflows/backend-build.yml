@@ -30,6 +30,10 @@ jobs:
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
       JWT_SECRET: MasterLearningPlatformCIJwtSecretKey2026!DoNotUseInProduction
+      RUN_SUPER_ADMIN_CONCURRENCY_TEST: "true"
+      SUPER_ADMIN_CONCURRENCY_TEST_DB_URL: jdbc:postgresql://localhost:5432/master_learning
+      SUPER_ADMIN_CONCURRENCY_TEST_DB_USERNAME: postgres
+      SUPER_ADMIN_CONCURRENCY_TEST_DB_PASSWORD: postgres
 
     steps:
       - name: Checkout
