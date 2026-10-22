@@ -154,6 +154,11 @@ public class UserManagementServiceImpl implements UserManagementService {
             return;
         }
 
+        // Serialize privileged-account changes by locking the shared SUPER_ADMIN role row.
+        // This makes concurrent disable requests re-check the active-admin count one at a time.
+        roles.findByCodeForUpdate(SUPER_ADMIN)
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + SUPER_ADMIN));
+
         if (users.countActiveSuperAdmins() <= 1) {
             throw new ForbiddenException(
                     "The last active SUPER_ADMIN account cannot be disabled or stripped of SUPER_ADMIN access"
