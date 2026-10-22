@@ -69,6 +69,17 @@ class PrivateTeacherSessionServiceTest {
     }
 
     @Test
+    void rejectsInvalidSessionTimezoneBeforeCheckingAvailability() {
+        var start = Instant.now().plus(Duration.ofDays(2));
+        var request = new PrivateTeacherSessionRequest(teacherId, start, start.plus(Duration.ofHours(1)), "Not/A_Real_Zone", "Maths", null);
+
+        var error = assertThrows(IllegalArgumentException.class, () -> service.request(learnerId, request));
+
+        assertEquals("Invalid session timezone", error.getMessage());
+        verifyNoInteractions(sessions, availability);
+    }
+
+    @Test
     void rejectsOverlappingTeacherSessionBeforeCheckingAvailability() {
         var start = Instant.now().plus(Duration.ofDays(2));
         var request = request(teacherId, start, start.plus(Duration.ofMinutes(60)));
