@@ -80,6 +80,7 @@ class UserManagementServiceImplTest {
         target.assignRole(superAdmin);
         UUID id = UUID.randomUUID();
         when(users.findById(id)).thenReturn(Optional.of(target));
+        when(roles.findByCodeForUpdate("SUPER_ADMIN")).thenReturn(Optional.of(superAdmin));
         when(users.countActiveSuperAdmins()).thenReturn(1L);
 
         assertThrows(ForbiddenException.class,
