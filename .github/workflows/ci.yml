@@ -17,6 +17,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,9 +27,5 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Set up Maven
-        uses: stCarolas/setup-maven@v5
-        with:
-          maven-version: '3.9.9'
       - name: Verify backend
         run: mvn --batch-mode --no-transfer-progress test
