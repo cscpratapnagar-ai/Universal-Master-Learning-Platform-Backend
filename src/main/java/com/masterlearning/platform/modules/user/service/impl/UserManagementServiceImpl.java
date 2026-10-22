@@ -27,6 +27,8 @@ import java.util.stream.Collectors;
 public class UserManagementServiceImpl implements UserManagementService {
 
     private static final String SUPER_ADMIN = "SUPER_ADMIN";
+    private static final Set<String> ASSIGNABLE_ROLE_CODES =
+            Set.of("ADMIN", "TEACHER", "INSTRUCTOR", "ORG_ADMIN", "LEARNER");
 
     private final UserRepository users;
     private final RoleRepository roles;
@@ -95,6 +97,8 @@ public class UserManagementServiceImpl implements UserManagementService {
                         .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + code)))
                 .collect(Collectors.toSet());
 
+        assertRoleAssignmentAllowed(user, resolvedRoles);
+
         boolean currentlySuperAdmin = userHasRole(user, SUPER_ADMIN);
         boolean willRemainSuperAdmin = resolvedRoles.stream()
                 .anyMatch(role -> SUPER_ADMIN.equalsIgnoreCase(role.getCode()));
@@ -105,6 +109,28 @@ public class UserManagementServiceImpl implements UserManagementService {
 
         user.replaceRoles(resolvedRoles);
         return mapper.toResponse(users.save(user));
+    }
+
+    private void assertRoleAssignmentAllowed(User user, Set<Role> requestedRoles) {
+        Set<String> currentRoleCodes = user.getRoles().stream()
+                .map(role -> role.getCode().toUpperCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+        Set<String> requestedRoleCodes = requestedRoles.stream()
+                .map(role -> role.getCode().toUpperCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+
+        boolean addsProtectedRole = requestedRoleCodes.stream()
+                .anyMatch(code -> !ASSIGNABLE_ROLE_CODES.contains(code)
+                        && !currentRoleCodes.contains(code));
+        boolean removesProtectedRole = currentRoleCodes.stream()
+                .anyMatch(code -> !ASSIGNABLE_ROLE_CODES.contains(code)
+                        && !requestedRoleCodes.contains(code));
+
+        if (addsProtectedRole || removesProtectedRole) {
+            throw new ForbiddenException(
+                    "Protected roles cannot be added or removed through user management"
+            );
+        }
     }
 
     private void assertNotSelf(User targetUser) {
