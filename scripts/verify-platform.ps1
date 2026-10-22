@@ -63,7 +63,10 @@ if (-not $SkipSmokeTest) {
     $backendHealthy = $false
     try {
         $health = Invoke-RestMethod -Uri 'http://localhost:8080/actuator/health' -TimeoutSec 3
-        $backendHealthy = $health.status -eq 'UP' -and $health.components.db.status -eq 'UP'
+        $backendHealthy = $health.status -eq 'UP'
+        if ($backendHealthy -and $health.components -and $health.components.db) {
+            $backendHealthy = $health.components.db.status -eq 'UP'
+        }
     }
     catch {
         $backendHealthy = $false
