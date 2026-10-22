@@ -108,4 +108,42 @@ class UserManagementServiceImplTest {
         assertTrue(target.getRoles().stream().anyMatch(role -> "SUPER_ADMIN".equals(role.getCode())));
         verify(users, never()).save(any());
     }
+
+    @Test
+    void preventsGrantingProtectedSuperAdminRoleThroughUserManagement() {
+        User target = new User("other@example.com", "hash", "Other", "User");
+        Role learner = mock(Role.class);
+        Role superAdmin = mock(Role.class);
+        when(learner.getCode()).thenReturn("LEARNER");
+        when(superAdmin.getCode()).thenReturn("SUPER_ADMIN");
+        target.assignRole(learner);
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.of(target));
+        when(roles.findByCode("SUPER_ADMIN")).thenReturn(Optional.of(superAdmin));
+
+        assertThrows(ForbiddenException.class,
+                () -> service.updateRoles(id, new UpdateUserRolesRequest(Set.of("SUPER_ADMIN"))));
+
+        verify(users, never()).save(any());
+    }
+
+    @Test
+    void preventsRemovingExistingProtectedStudentRoleThroughUserManagement() {
+        User target = new User("other@example.com", "hash", "Other", "User");
+        Role student = mock(Role.class);
+        Role learner = mock(Role.class);
+        when(student.getCode()).thenReturn("STUDENT");
+        when(learner.getCode()).thenReturn("LEARNER");
+        target.assignRole(student);
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.of(target));
+        when(roles.findByCode("LEARNER")).thenReturn(Optional.of(learner));
+
+        assertThrows(ForbiddenException.class,
+                () -> service.updateRoles(id, new UpdateUserRolesRequest(Set.of("LEARNER"))));
+
+        assertTrue(target.getRoles().stream().anyMatch(role -> "STUDENT".equals(role.getCode())));
+        verify(users, never()).save(any());
+    }
+
 }
