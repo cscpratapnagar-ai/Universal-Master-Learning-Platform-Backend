@@ -44,7 +44,7 @@ public class PrivateTeacherSessionService {
   String requestedTimezone = r.timezone() == null || r.timezone().isBlank() ? "UTC" : r.timezone().trim();
   try { ZoneId.of(requestedTimezone); }
   catch (DateTimeException ex) { throw new IllegalArgumentException("Invalid session timezone"); }
-  if(sessions.countTeacherOverlap(r.teacherId(),r.startsAt(),r.endsAt())>0) throw new IllegalArgumentException("Teacher already has an overlapping session");
+  if(sessions.countTeacherOverlap(r.teacherId(),r.startsAt(),r.endsAt())>0) throw new ConflictException("Teacher already has an overlapping session");
   validateAvailability(r.teacherId(),r.startsAt(),r.endsAt());
   try {
    return PrivateTeacherSessionResponse.from(sessions.save(new PrivateTeacherSession(r.teacherId(),learnerId,r.startsAt(),r.endsAt(),requestedTimezone,r.topic(),r.notes())));
