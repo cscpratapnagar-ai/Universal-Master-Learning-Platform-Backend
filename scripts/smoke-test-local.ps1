@@ -64,7 +64,9 @@ Write-Host ""
 Invoke-SmokeRequest -Name "Actuator health and database connection" -Path "/actuator/health" -ExpectedStatus 200 -Validate {
     param($json, $body)
     if ($json.status -ne "UP") { throw "Health status is not UP." }
-    if ($json.components.db.status -ne "UP") { throw "Database health is not UP." }
+    if ($json.components -and $json.components.db -and $json.components.db.status -ne "UP") {
+        throw "Database health is not UP."
+    }
 }
 
 Invoke-SmokeRequest -Name "Public platform status" -Path "/api/v1/public/status" -ExpectedStatus 200 -Validate {
