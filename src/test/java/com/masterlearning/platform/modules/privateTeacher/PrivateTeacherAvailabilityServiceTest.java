@@ -42,6 +42,19 @@ class PrivateTeacherAvailabilityServiceTest {
     }
 
     @Test
+    void rejectsInvalidTimezoneBeforeSaving() {
+        var teacherId = UUID.randomUUID();
+        var request = new PrivateTeacherAvailabilityRequest(
+                DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(11, 0), "Not/A_Real_Zone");
+
+        var error = assertThrows(IllegalArgumentException.class,
+                () -> service.create(teacherId, request));
+
+        assertEquals("Invalid availability timezone", error.getMessage());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
     void mapsDatabaseExclusionViolationToConflict() {
         var teacherId = UUID.randomUUID();
         var request = new PrivateTeacherAvailabilityRequest(
