@@ -26,10 +26,9 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @SpringBootTest
-@ActiveProfiles("local")
+@ActiveProfiles("prod")
 @EnabledIfEnvironmentVariable(named = "RUN_SUPER_ADMIN_CONCURRENCY_TEST", matches = "true")
 class UserManagementSuperAdminConcurrencyTest {
 
@@ -63,11 +62,13 @@ class UserManagementSuperAdminConcurrencyTest {
 
     @Test
     void concurrentDisableRequestsCannotDisableBothLastSuperAdmins() throws Exception {
-        // This test requires a dedicated integration-test database with no pre-existing
-        // active Super Admin accounts. Never mutate existing privileged accounts.
+        // This test uses the dedicated disposable PostgreSQL service configured by CI.
+        // Bootstrap accounts remain disabled under the prod profile.
         long baselineActiveSuperAdmins = users.countActiveSuperAdmins();
-        assumeTrue(baselineActiveSuperAdmins == 0,
-                "Run only against an isolated database with no pre-existing active Super Admin accounts");
+        if (baselineActiveSuperAdmins != 0) {
+            throw new IllegalStateException("Dedicated concurrency test database must start with zero active Super Admin accounts; found "
+                    + baselineActiveSuperAdmins);
+        }
 
         Role superAdmin = roles.findByCode("SUPER_ADMIN")
                 .orElseThrow(() -> new AssertionError("SUPER_ADMIN role must exist in the integration-test database"));
