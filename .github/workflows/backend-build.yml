@@ -34,6 +34,15 @@ jobs:
       SUPER_ADMIN_CONCURRENCY_TEST_DB_URL: jdbc:postgresql://localhost:5432/master_learning
       SUPER_ADMIN_CONCURRENCY_TEST_DB_USERNAME: postgres
       SUPER_ADMIN_CONCURRENCY_TEST_DB_PASSWORD: postgres
+      MAIL_HOST: localhost
+      MAIL_PORT: "1025"
+      MAIL_USERNAME: ""
+      MAIL_PASSWORD: ""
+      MAIL_SMTP_AUTH: "false"
+      MAIL_SMTP_STARTTLS: "false"
+      APP_FRONTEND_URL: http://localhost:4200
+      MAIL_FROM: no-reply@masterlearning.local
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:4200
 
     steps:
       - name: Checkout
