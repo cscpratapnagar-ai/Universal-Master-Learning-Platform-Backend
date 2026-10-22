@@ -20,13 +20,18 @@ function Invoke-Check {
     )
 
     Write-Host "`n=== $Name ===" -ForegroundColor Cyan
-    & $Command
-    if ($LASTEXITCODE -ne 0) {
-        $script:failed++
-        throw "$Name failed with exit code $LASTEXITCODE."
+    try {
+        & $Command
+        if ($LASTEXITCODE -ne 0) {
+            throw "$Name failed with exit code $LASTEXITCODE."
+        }
+        $script:passed++
+        Write-Host "[PASS] $Name" -ForegroundColor Green
     }
-    $script:passed++
-    Write-Host "[PASS] $Name" -ForegroundColor Green
+    catch {
+        $script:failed++
+        Write-Host "[FAIL] $Name - $($_.Exception.Message)" -ForegroundColor Red
+    }
 }
 
 Write-Host 'Universal Master Learning Platform - Full Verification' -ForegroundColor Cyan
@@ -55,23 +60,23 @@ else {
 }
 
 if (-not $SkipSmokeTest) {
+    $backendHealthy = $false
     try {
         $health = Invoke-RestMethod -Uri 'http://localhost:8080/actuator/health' -TimeoutSec 3
-        if ($health.status -ne 'UP' -or $health.components.db.status -ne 'UP') {
-            throw 'Backend or database health is not UP.'
-        }
-
-        Push-Location $backendRoot
-        try {
-            Invoke-Check -Name 'Live API and database smoke tests' -Command {
-                & (Join-Path $backendRoot 'scripts/smoke-test-local.ps1')
-            }
-        }
-        finally { Pop-Location }
+        $backendHealthy = $health.status -eq 'UP' -and $health.components.db.status -eq 'UP'
     }
     catch {
+        $backendHealthy = $false
+    }
+
+    if ($backendHealthy) {
+        Invoke-Check -Name 'Live API and database smoke tests' -Command {
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $backendRoot 'scripts/smoke-test-local.ps1')
+        }
+    }
+    else {
         $script:skipped++
-        Write-Host "[SKIP] Live smoke tests: backend is not healthy/reachable at localhost:8080. Start the backend and rerun to include live API checks. Details: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host '[SKIP] Live smoke tests: backend/database is not healthy at localhost:8080. Start the backend and rerun to include live API checks.' -ForegroundColor Yellow
     }
 }
 else {
