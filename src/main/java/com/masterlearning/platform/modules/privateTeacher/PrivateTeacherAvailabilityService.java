@@ -5,6 +5,7 @@ import com.masterlearning.platform.modules.privateTeacher.entity.PrivateTeacherA
 import com.masterlearning.platform.modules.privateTeacher.repository.PrivateTeacherAvailabilityRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,5 +48,20 @@ public class PrivateTeacherAvailabilityService {
             throw new IllegalArgumentException("Availability does not belong to teacher");
         }
         item.disable();
+    }
+    private boolean isAvailabilityOverlap(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof SQLException sqlException
+                    && "23P01".equals(sqlException.getSQLState())) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null && message.contains("trg_private_teacher_availability_no_overlap")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }
