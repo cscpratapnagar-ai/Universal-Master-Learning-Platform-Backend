@@ -39,10 +39,13 @@ public class PrivateTeacherSessionService {
   if(learnerId.equals(r.teacherId())) throw new IllegalArgumentException("Learner cannot book a session with themselves");
   if(!r.endsAt().isAfter(r.startsAt())) throw new IllegalArgumentException("Session end must be after start");
   if(r.startsAt().isBefore(Instant.now())) throw new IllegalArgumentException("Session must start in the future");
+  String requestedTimezone = r.timezone() == null || r.timezone().isBlank() ? "UTC" : r.timezone().trim();
+  try { ZoneId.of(requestedTimezone); }
+  catch (DateTimeException ex) { throw new IllegalArgumentException("Invalid session timezone"); }
   if(sessions.countTeacherOverlap(r.teacherId(),r.startsAt(),r.endsAt())>0) throw new IllegalArgumentException("Teacher already has an overlapping session");
   validateAvailability(r.teacherId(),r.startsAt(),r.endsAt());
   try {
-   return PrivateTeacherSessionResponse.from(sessions.save(new PrivateTeacherSession(r.teacherId(),learnerId,r.startsAt(),r.endsAt(),r.timezone()==null?"UTC":r.timezone(),r.topic(),r.notes())));
+   return PrivateTeacherSessionResponse.from(sessions.save(new PrivateTeacherSession(r.teacherId(),learnerId,r.startsAt(),r.endsAt(),requestedTimezone,r.topic(),r.notes())));
   } catch (org.springframework.dao.DataIntegrityViolationException ex) {
    throw new IllegalArgumentException("Teacher already has an overlapping session");
   }
