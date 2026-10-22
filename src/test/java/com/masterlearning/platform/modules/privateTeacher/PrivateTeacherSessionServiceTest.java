@@ -2,6 +2,9 @@ package com.masterlearning.platform.modules.privateTeacher;
 
 import com.masterlearning.platform.modules.privateTeacher.entity.PrivateTeacherAvailability;
 import com.masterlearning.platform.modules.privateTeacher.entity.PrivateTeacherSession;
+import com.masterlearning.platform.common.exception.ConflictException;
+import org.springframework.dao.DataIntegrityViolationException;
+import java.sql.SQLException;
 import com.masterlearning.platform.modules.privateTeacher.repository.PrivateTeacherAvailabilityRepository;
 import com.masterlearning.platform.modules.privateTeacher.repository.PrivateTeacherSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -121,6 +124,40 @@ class PrivateTeacherSessionServiceTest {
 
         assertEquals("Teacher has no active availability", error.getMessage());
         verify(sessions, never()).save(any());
+    }
+
+    @Test
+    void mapsDatabaseSessionOverlapViolationToConflict() {
+        var date = LocalDate.now(ZoneOffset.UTC).plusDays(5);
+        var start = date.atTime(10, 0).toInstant(ZoneOffset.UTC);
+        var request = request(teacherId, start, start.plus(Duration.ofMinutes(30)));
+        when(sessions.countTeacherOverlap(teacherId, request.startsAt(), request.endsAt())).thenReturn(0L);
+        when(availability.findByTeacherIdAndActiveTrueOrderByDayOfWeekAscStartTimeAsc(teacherId))
+                .thenReturn(List.of(new PrivateTeacherAvailability(
+                        teacherId, date.getDayOfWeek(), LocalTime.of(9, 0), LocalTime.of(12, 0), "UTC")));
+        when(sessions.save(any(PrivateTeacherSession.class))).thenThrow(
+                new DataIntegrityViolationException("session overlap", new SQLException("overlap", "23P01")));
+
+        assertThrows(ConflictException.class, () -> service.request(learnerId, request));
+    }
+
+    @Test
+    void rethrowsUnrelatedSessionDatabaseIntegrityViolation() {
+        var date = LocalDate.now(ZoneOffset.UTC).plusDays(5);
+        var start = date.atTime(10, 0).toInstant(ZoneOffset.UTC);
+        var request = request(teacherId, start, start.plus(Duration.ofMinutes(30)));
+        when(sessions.countTeacherOverlap(teacherId, request.startsAt(), request.endsAt())).thenReturn(0L);
+        when(availability.findByTeacherIdAndActiveTrueOrderByDayOfWeekAscStartTimeAsc(teacherId))
+                .thenReturn(List.of(new PrivateTeacherAvailability(
+                        teacherId, date.getDayOfWeek(), LocalTime.of(9, 0), LocalTime.of(12, 0), "UTC")));
+        var databaseError = new DataIntegrityViolationException(
+                "unrelated integrity failure", new SQLException("foreign key violation", "23503"));
+        when(sessions.save(any(PrivateTeacherSession.class))).thenThrow(databaseError);
+
+        var error = assertThrows(DataIntegrityViolationException.class,
+                () -> service.request(learnerId, request));
+
+        assertSame(databaseError, error);
     }
 
     @Test
