@@ -27,8 +27,12 @@ public class PrivateTeacherAvailabilityService {
             throw new IllegalArgumentException("endTime must be after startTime");
         }
         String timezone = request.timezone().trim();
-        return PrivateTeacherAvailabilityResponse.from(repository.save(
-                new PrivateTeacherAvailability(teacherId, request.dayOfWeek(), request.startTime(), request.endTime(), timezone)));
+        try {
+            return PrivateTeacherAvailabilityResponse.from(repository.save(
+                    new PrivateTeacherAvailability(teacherId, request.dayOfWeek(), request.startTime(), request.endTime(), timezone)));
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            throw new IllegalArgumentException("Availability overlaps an existing active window");
+        }
     }
 
     @Transactional
