@@ -1,6 +1,7 @@
 package com.masterlearning.platform.modules.user.service;
 
 import com.masterlearning.platform.common.exception.ForbiddenException;
+import com.masterlearning.platform.common.exception.ResourceNotFoundException;
 import com.masterlearning.platform.modules.identity.entity.Role;
 import com.masterlearning.platform.modules.identity.repository.RoleRepository;
 import com.masterlearning.platform.modules.user.dto.request.UpdateUserRolesRequest;
@@ -197,6 +198,20 @@ class UserManagementServiceImplTest {
         assertTrue(target.getRoles().stream().anyMatch(role -> "LEARNER".equals(role.getCode())));
         verify(roles).findByCode("LEARNER");
         verify(users).save(target);
+    }
+
+    @Test
+    void rejectsUnknownRoleCodeWithoutSavingUser() {
+        User target = new User("learner@example.com", "hash", "Learner", "User");
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.of(target));
+        when(roles.findByCode("UNKNOWN_ROLE")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> service.updateRoles(id, new UpdateUserRolesRequest(Set.of("unknown_role"))));
+
+        assertTrue(target.getRoles().isEmpty());
+        verify(users, never()).save(any());
     }
 
 }
