@@ -167,4 +167,36 @@ class UserManagementServiceImplTest {
         verify(users, never()).save(any());
     }
 
+
+    @Test
+    void allowsEnablingAnotherUsersDisabledAccount() {
+        User target = new User("learner@example.com", "hash", "Learner", "User");
+        target.disable();
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.of(target));
+        when(users.save(target)).thenReturn(target);
+
+        service.updateStatus(id, new UpdateUserStatusRequest(true));
+
+        assertTrue(target.isEnabled());
+        verify(users).save(target);
+    }
+
+    @Test
+    void normalizesAssignableRoleCodesBeforeResolvingThem() {
+        User target = new User("learner@example.com", "hash", "Learner", "User");
+        Role learner = mock(Role.class);
+        when(learner.getCode()).thenReturn("LEARNER");
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.of(target));
+        when(roles.findByCode("LEARNER")).thenReturn(Optional.of(learner));
+        when(users.save(target)).thenReturn(target);
+
+        service.updateRoles(id, new UpdateUserRolesRequest(Set.of(" learner ")));
+
+        assertTrue(target.getRoles().stream().anyMatch(role -> "LEARNER".equals(role.getCode())));
+        verify(roles).findByCode("LEARNER");
+        verify(users).save(target);
+    }
+
 }
