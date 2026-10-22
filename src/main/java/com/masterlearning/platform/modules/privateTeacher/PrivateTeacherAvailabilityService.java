@@ -1,5 +1,6 @@
 package com.masterlearning.platform.modules.privateTeacher;
 
+import com.masterlearning.platform.common.exception.ConflictException;
 import com.masterlearning.platform.modules.privateTeacher.entity.PrivateTeacherAvailability;
 import com.masterlearning.platform.modules.privateTeacher.repository.PrivateTeacherAvailabilityRepository;
 import org.springframework.stereotype.Service;
@@ -31,7 +32,7 @@ public class PrivateTeacherAvailabilityService {
             return PrivateTeacherAvailabilityResponse.from(repository.save(
                     new PrivateTeacherAvailability(teacherId, request.dayOfWeek(), request.startTime(), request.endTime(), timezone)));
         } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-            throw new IllegalArgumentException("Availability overlaps an existing active window");
+            throw new ConflictException("Availability overlaps an existing active window");
         }
     }
 
