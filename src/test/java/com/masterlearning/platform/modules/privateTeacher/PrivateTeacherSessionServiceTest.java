@@ -83,12 +83,13 @@ class PrivateTeacherSessionServiceTest {
 
     @Test
     void rejectsRequestOutsideActiveTeacherAvailability() {
-        var start = Instant.now().plus(Duration.ofDays(2));
+        var date = LocalDate.now(ZoneOffset.UTC).plusDays(5);
+        var start = date.atTime(12, 0).toInstant(ZoneOffset.UTC);
         var request = request(teacherId, start, start.plus(Duration.ofMinutes(60)));
         when(sessions.countTeacherOverlap(teacherId, request.startsAt(), request.endsAt())).thenReturn(0L);
         when(availability.findByTeacherIdAndActiveTrueOrderByDayOfWeekAscStartTimeAsc(teacherId))
                 .thenReturn(List.of(new PrivateTeacherAvailability(
-                        teacherId, DayOfWeek.MONDAY, LocalTime.of(9, 0), LocalTime.of(10, 0), "UTC")));
+                        teacherId, date.getDayOfWeek(), LocalTime.of(9, 0), LocalTime.of(10, 0), "UTC")));
 
         var error = assertThrows(IllegalArgumentException.class, () -> service.request(learnerId, request));
 
