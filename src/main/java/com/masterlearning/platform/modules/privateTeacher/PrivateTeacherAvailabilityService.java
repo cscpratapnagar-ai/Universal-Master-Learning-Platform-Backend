@@ -6,6 +6,8 @@ import com.masterlearning.platform.modules.privateTeacher.repository.PrivateTeac
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.sql.SQLException;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,6 +31,11 @@ public class PrivateTeacherAvailabilityService {
             throw new IllegalArgumentException("endTime must be after startTime");
         }
         String timezone = request.timezone().trim();
+        try {
+            ZoneId.of(timezone);
+        } catch (DateTimeException ex) {
+            throw new IllegalArgumentException("Invalid availability timezone");
+        }
         try {
             return PrivateTeacherAvailabilityResponse.from(repository.save(
                     new PrivateTeacherAvailability(teacherId, request.dayOfWeek(), request.startTime(), request.endTime(), timezone)));
