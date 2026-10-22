@@ -32,7 +32,10 @@ public class PrivateTeacherAvailabilityService {
             return PrivateTeacherAvailabilityResponse.from(repository.save(
                     new PrivateTeacherAvailability(teacherId, request.dayOfWeek(), request.startTime(), request.endTime(), timezone)));
         } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-            throw new ConflictException("Availability overlaps an existing active window");
+            if (isAvailabilityOverlap(ex)) {
+                throw new ConflictException("Availability overlaps an existing active window");
+            }
+            throw ex;
         }
     }
 
