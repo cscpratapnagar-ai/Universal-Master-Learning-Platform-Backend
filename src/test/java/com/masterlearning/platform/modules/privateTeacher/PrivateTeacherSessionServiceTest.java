@@ -88,7 +88,7 @@ class PrivateTeacherSessionServiceTest {
         var request = request(teacherId, start, start.plus(Duration.ofMinutes(60)));
         when(sessions.countTeacherOverlap(teacherId, request.startsAt(), request.endsAt())).thenReturn(1L);
 
-        var error = assertThrows(IllegalArgumentException.class, () -> service.request(learnerId, request));
+        var error = assertThrows(ConflictException.class, () -> service.request(learnerId, request));
 
         assertEquals("Teacher already has an overlapping session", error.getMessage());
         verifyNoInteractions(availability);
