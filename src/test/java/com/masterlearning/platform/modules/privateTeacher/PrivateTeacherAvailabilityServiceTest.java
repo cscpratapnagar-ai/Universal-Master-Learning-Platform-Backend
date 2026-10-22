@@ -67,6 +67,49 @@ class PrivateTeacherAvailabilityServiceTest {
     }
 
     @Test
+    void disableMarksOwnedAvailabilityInactive() {
+        var teacherId = UUID.randomUUID();
+        var availabilityId = UUID.randomUUID();
+        var item = new PrivateTeacherAvailability(
+                teacherId, DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(11, 0), "UTC");
+        when(repository.findById(availabilityId)).thenReturn(java.util.Optional.of(item));
+
+        assertTrue(item.isActive());
+        service.disable(teacherId, availabilityId);
+
+        assertFalse(item.isActive());
+        verify(repository).findById(availabilityId);
+    }
+
+    @Test
+    void disableRejectsAvailabilityOwnedByAnotherTeacher() {
+        var teacherId = UUID.randomUUID();
+        var ownerId = UUID.randomUUID();
+        var availabilityId = UUID.randomUUID();
+        var item = new PrivateTeacherAvailability(
+                ownerId, DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(11, 0), "UTC");
+        when(repository.findById(availabilityId)).thenReturn(java.util.Optional.of(item));
+
+        var error = assertThrows(IllegalArgumentException.class,
+                () -> service.disable(teacherId, availabilityId));
+
+        assertEquals("Availability does not belong to teacher", error.getMessage());
+        assertTrue(item.isActive());
+    }
+
+    @Test
+    void disableRejectsMissingAvailability() {
+        var teacherId = UUID.randomUUID();
+        var availabilityId = UUID.randomUUID();
+        when(repository.findById(availabilityId)).thenReturn(java.util.Optional.empty());
+
+        var error = assertThrows(IllegalArgumentException.class,
+                () -> service.disable(teacherId, availabilityId));
+
+        assertEquals("Availability not found", error.getMessage());
+    }
+
+    @Test
     void rethrowsUnrelatedDatabaseIntegrityViolation() {
         var teacherId = UUID.randomUUID();
         var request = new PrivateTeacherAvailabilityRequest(
