@@ -109,6 +109,21 @@ class PrivateTeacherSessionServiceTest {
     }
 
     @Test
+    void rejectsBookingWhenTeacherHasNoActiveAvailability() {
+        var start = Instant.now().plus(Duration.ofDays(2));
+        var request = request(teacherId, start, start.plus(Duration.ofMinutes(60)));
+        when(sessions.countTeacherOverlap(teacherId, request.startsAt(), request.endsAt())).thenReturn(0L);
+        when(availability.findByTeacherIdAndActiveTrueOrderByDayOfWeekAscStartTimeAsc(teacherId))
+                .thenReturn(List.of());
+
+        var error = assertThrows(IllegalArgumentException.class,
+                () -> service.request(learnerId, request));
+
+        assertEquals("Teacher has no active availability", error.getMessage());
+        verify(sessions, never()).save(any());
+    }
+
+    @Test
     void rejectsConfirmationBySomeoneOtherThanAssignedTeacher() {
         var start = Instant.now().plus(Duration.ofDays(2));
         var session = new PrivateTeacherSession(teacherId, learnerId, start, start.plus(Duration.ofHours(1)), "UTC", "Maths", null);
