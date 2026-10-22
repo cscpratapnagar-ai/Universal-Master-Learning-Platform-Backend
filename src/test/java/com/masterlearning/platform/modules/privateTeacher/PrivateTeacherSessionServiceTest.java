@@ -112,6 +112,27 @@ class PrivateTeacherSessionServiceTest {
     }
 
     @Test
+    void acceptsBookingInsideActiveAvailabilityAndTrimsTimezone() {
+        var date = LocalDate.now(ZoneOffset.UTC).plusDays(5);
+        var start = date.atTime(10, 0).toInstant(ZoneOffset.UTC);
+        var request = new PrivateTeacherSessionRequest(
+                teacherId, start, start.plus(Duration.ofMinutes(30)), " UTC ", "Maths", null);
+        when(sessions.countTeacherOverlap(teacherId, request.startsAt(), request.endsAt())).thenReturn(0L);
+        when(availability.findByTeacherIdAndActiveTrueOrderByDayOfWeekAscStartTimeAsc(teacherId))
+                .thenReturn(List.of(new PrivateTeacherAvailability(
+                        teacherId, date.getDayOfWeek(), LocalTime.of(9, 0), LocalTime.of(12, 0), "UTC")));
+        when(sessions.save(any(PrivateTeacherSession.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.request(learnerId, request);
+
+        assertEquals("UTC", response.timezone());
+        assertEquals(start, response.startsAt());
+        assertEquals(start.plus(Duration.ofMinutes(30)), response.endsAt());
+        verify(sessions).save(any(PrivateTeacherSession.class));
+    }
+
+    @Test
     void rejectsBookingWhenTeacherHasNoActiveAvailability() {
         var start = Instant.now().plus(Duration.ofDays(2));
         var request = request(teacherId, start, start.plus(Duration.ofMinutes(60)));
