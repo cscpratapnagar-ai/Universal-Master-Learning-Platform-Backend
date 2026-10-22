@@ -2,7 +2,7 @@ package com.masterlearning.platform.common.exception;
 
 import com.masterlearning.platform.common.api.ApiErrorResponse;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.env.MockEnvironment;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
 
