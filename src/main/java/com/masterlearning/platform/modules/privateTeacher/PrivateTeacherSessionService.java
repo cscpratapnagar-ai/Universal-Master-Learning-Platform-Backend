@@ -4,6 +4,8 @@ import com.masterlearning.platform.modules.privateTeacher.entity.PrivateTeacherA
 import com.masterlearning.platform.modules.privateTeacher.entity.PrivateTeacherSession;
 import com.masterlearning.platform.modules.privateTeacher.repository.PrivateTeacherAvailabilityRepository;
 import com.masterlearning.platform.modules.privateTeacher.repository.PrivateTeacherSessionRepository;
+import com.masterlearning.platform.common.exception.ConflictException;
+import java.sql.SQLException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
@@ -47,8 +49,27 @@ public class PrivateTeacherSessionService {
   try {
    return PrivateTeacherSessionResponse.from(sessions.save(new PrivateTeacherSession(r.teacherId(),learnerId,r.startsAt(),r.endsAt(),requestedTimezone,r.topic(),r.notes())));
   } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-   throw new IllegalArgumentException("Teacher already has an overlapping session");
+   if (isSessionOverlap(ex)) {
+    throw new ConflictException("Teacher already has an overlapping session");
+   }
+   throw ex;
   }
+ }
+
+ private boolean isSessionOverlap(Throwable error) {
+  Throwable current = error;
+  while (current != null) {
+   if (current instanceof SQLException sqlException
+       && "23P01".equals(sqlException.getSQLState())) {
+    return true;
+   }
+   String message = current.getMessage();
+   if (message != null && message.contains("ex_private_teacher_session_overlap")) {
+    return true;
+   }
+   current = current.getCause();
+  }
+  return false;
  }
 
  @Transactional
