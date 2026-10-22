@@ -13,6 +13,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.util.UUID;
@@ -28,8 +30,27 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @SpringBootTest
 @ActiveProfiles("local")
-@EnabledIfEnvironmentVariable(named = "CI", matches = "true")
+@EnabledIfEnvironmentVariable(named = "RUN_SUPER_ADMIN_CONCURRENCY_TEST", matches = "true")
 class UserManagementSuperAdminConcurrencyTest {
+
+    @DynamicPropertySource
+    static void configureDedicatedPostgresDatabase(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", () -> requiredEnvironmentVariable(
+                "SUPER_ADMIN_CONCURRENCY_TEST_DB_URL"));
+        registry.add("spring.datasource.username", () -> requiredEnvironmentVariable(
+                "SUPER_ADMIN_CONCURRENCY_TEST_DB_USERNAME"));
+        registry.add("spring.datasource.password", () -> requiredEnvironmentVariable(
+                "SUPER_ADMIN_CONCURRENCY_TEST_DB_PASSWORD"));
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+    }
+
+    private static String requiredEnvironmentVariable(String name) {
+        String value = System.getenv(name);
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException(name + " must point to a dedicated, disposable PostgreSQL test database");
+        }
+        return value;
+    }
 
     @Autowired
     private UserManagementService userManagement;
