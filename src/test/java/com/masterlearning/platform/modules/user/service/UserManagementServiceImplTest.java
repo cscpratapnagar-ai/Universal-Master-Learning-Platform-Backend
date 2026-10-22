@@ -90,7 +90,7 @@ class UserManagementServiceImplTest {
     }
 
     @Test
-    void preventsRemovingSuperAdminRoleFromTheLastActiveSuperAdmin() {
+    void preventsRemovingProtectedSuperAdminRoleThroughUserManagement() {
         User target = new User("other@example.com", "hash", "Other", "Admin");
         Role superAdmin = mock(Role.class);
         Role learner = mock(Role.class);
@@ -100,7 +100,6 @@ class UserManagementServiceImplTest {
         UUID id = UUID.randomUUID();
         when(users.findById(id)).thenReturn(Optional.of(target));
         when(roles.findByCode("LEARNER")).thenReturn(Optional.of(learner));
-        when(users.countActiveSuperAdmins()).thenReturn(1L);
 
         assertThrows(ForbiddenException.class,
                 () -> service.updateRoles(id, new UpdateUserRolesRequest(Set.of("LEARNER"))));
