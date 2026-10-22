@@ -26,8 +26,9 @@ public class PrivateTeacherAvailabilityService {
         if (!request.endTime().isAfter(request.startTime())) {
             throw new IllegalArgumentException("endTime must be after startTime");
         }
+        String timezone = request.timezone().trim();
         return PrivateTeacherAvailabilityResponse.from(repository.save(
-                new PrivateTeacherAvailability(teacherId, request.dayOfWeek(), request.startTime(), request.endTime(), request.timezone())));
+                new PrivateTeacherAvailability(teacherId, request.dayOfWeek(), request.startTime(), request.endTime(), timezone)));
     }
 
     @Transactional
