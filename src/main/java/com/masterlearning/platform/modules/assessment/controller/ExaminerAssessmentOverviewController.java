@@ -4,6 +4,7 @@ import com.masterlearning.platform.common.api.ApiResponse;
 import com.masterlearning.platform.modules.assessment.repository.AssessmentAttemptRepository;
 import com.masterlearning.platform.modules.assessment.repository.AssessmentEvaluatorAssignmentRepository;
 import com.masterlearning.platform.modules.assessment.repository.AssessmentRepository;
+import com.masterlearning.platform.modules.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,13 +21,16 @@ public class ExaminerAssessmentOverviewController {
     private final AssessmentRepository assessments;
     private final AssessmentAttemptRepository attempts;
     private final AssessmentEvaluatorAssignmentRepository assignments;
+    private final UserRepository users;
 
     public ExaminerAssessmentOverviewController(AssessmentRepository assessments,
                                                 AssessmentAttemptRepository attempts,
-                                                AssessmentEvaluatorAssignmentRepository assignments) {
+                                                AssessmentEvaluatorAssignmentRepository assignments,
+                                                UserRepository users) {
         this.assessments = assessments;
         this.attempts = attempts;
         this.assignments = assignments;
+        this.users = users;
     }
 
     @GetMapping
@@ -47,6 +51,21 @@ public class ExaminerAssessmentOverviewController {
             return item;
         }).toList();
         return ApiResponse.success("Examination assessment overview retrieved", result);
+    }
+
+
+    @GetMapping("/eligible-evaluators")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','EXAMINER') or hasAuthority('EXAM:OVERSIGHT')")
+    @Transactional(readOnly = true)
+    public ApiResponse<List<Map<String, Object>>> eligibleEvaluators() {
+        List<Map<String, Object>> result = users.findEnabledUsersByRoleCode("EVALUATOR").stream().map(user -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("evaluatorId", user.getId());
+            item.put("email", user.getEmail());
+            item.put("displayName", (user.getFirstName() + " " + (user.getLastName() == null ? "" : user.getLastName())).trim());
+            return item;
+        }).toList();
+        return ApiResponse.success("Eligible evaluators retrieved", result);
     }
 
     @GetMapping("/{assessmentId}/evaluators")
