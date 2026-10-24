@@ -28,7 +28,7 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     private static final String SUPER_ADMIN = "SUPER_ADMIN";
     private static final Set<String> ASSIGNABLE_ROLE_CODES =
-            Set.of("ADMIN", "TEACHER", "INSTRUCTOR", "ORG_ADMIN", "LEARNER");
+            Set.of("ADMIN", "TEACHER", "INSTRUCTOR", "ORG_ADMIN", "LEARNER", "EXAMINER", "QUESTION_SETTER", "EVALUATOR", "PROCTOR", "PARENT", "FINANCE", "SUPPORT", "PRIVATE_TEACHER");
 
     private final UserRepository users;
     private final RoleRepository roles;
