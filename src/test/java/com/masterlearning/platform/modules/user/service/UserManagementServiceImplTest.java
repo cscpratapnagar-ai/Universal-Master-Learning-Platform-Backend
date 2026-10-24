@@ -109,6 +109,26 @@ class UserManagementServiceImplTest {
     }
 
     @Test
+    void allowsDisablingSuperAdminWhenAnotherActiveSuperAdminRemains() {
+        User target = new User("other-admin@example.com", "hash", "Other", "Admin");
+        Role superAdmin = mock(Role.class);
+        when(superAdmin.getCode()).thenReturn("SUPER_ADMIN");
+        target.assignRole(superAdmin);
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.of(target));
+        when(roles.findByCodeForUpdate("SUPER_ADMIN")).thenReturn(Optional.of(superAdmin));
+        when(users.countActiveSuperAdmins()).thenReturn(2L);
+        when(users.save(target)).thenReturn(target);
+
+        service.updateStatus(id, new UpdateUserStatusRequest(false));
+
+        assertFalse(target.isEnabled());
+        verify(roles).findByCodeForUpdate("SUPER_ADMIN");
+        verify(users).countActiveSuperAdmins();
+        verify(users).save(target);
+    }
+
+    @Test
     void preventsDisablingTheLastActiveSuperAdmin() {
         User target = new User("other@example.com", "hash", "Other", "Admin");
         Role superAdmin = mock(Role.class);
