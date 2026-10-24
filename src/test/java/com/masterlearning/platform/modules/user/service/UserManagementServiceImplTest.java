@@ -147,29 +147,22 @@ class UserManagementServiceImplTest {
     }
 
     @Test
-    void allowsRemovingSuperAdminRoleWhenAnotherActiveSuperAdminRemains() {
+    void rejectsRemovingProtectedSuperAdminRoleEvenWhenAnotherActiveAdminRemains() {
         User target = new User("other-admin@example.com", "hash", "Other", "Admin");
         Role superAdmin = mock(Role.class);
-        Role learner = mock(Role.class);
         when(superAdmin.getCode()).thenReturn("SUPER_ADMIN");
-        when(learner.getCode()).thenReturn("LEARNER");
         target.assignRole(superAdmin);
         UUID id = UUID.randomUUID();
         when(users.findById(id)).thenReturn(Optional.of(target));
-        when(roles.findByCode("LEARNER")).thenReturn(Optional.of(learner));
-        when(roles.findByCodeForUpdate("SUPER_ADMIN")).thenReturn(Optional.of(superAdmin));
-        when(users.countActiveSuperAdmins()).thenReturn(2L);
-        when(users.save(target)).thenReturn(target);
 
-        service.updateRoles(id, new UpdateUserRolesRequest(Set.of("LEARNER")));
+        assertThrows(ForbiddenException.class,
+                () -> service.updateRoles(id, new UpdateUserRolesRequest(Set.of("LEARNER"))));
 
-        assertFalse(target.getRoles().stream()
-                .anyMatch(role -> "SUPER_ADMIN".equals(role.getCode())));
         assertTrue(target.getRoles().stream()
-                .anyMatch(role -> "LEARNER".equals(role.getCode())));
-        verify(roles).findByCodeForUpdate("SUPER_ADMIN");
-        verify(users).countActiveSuperAdmins();
-        verify(users).save(target);
+                .anyMatch(role -> "SUPER_ADMIN".equals(role.getCode())));
+        verify(roles, never()).findByCodeForUpdate("SUPER_ADMIN");
+        verify(users, never()).countActiveSuperAdmins();
+        verify(users, never()).save(any());
     }
 
     @Test
@@ -475,7 +468,7 @@ class UserManagementServiceImplTest {
     void rejectsMixedValidAndUnknownRolesWithoutPartiallyUpdatingUser() {
         User target = new User("learner@example.com", "hash", "Learner", "User");
         Role learner = mock(Role.class);
-        when(learner.getCode()).thenReturn("LEARNER");
+        lenient().when(learner.getCode()).thenReturn("LEARNER");
         UUID id = UUID.randomUUID();
         when(users.findById(id)).thenReturn(Optional.of(target));
         lenient().when(roles.findByCode("LEARNER")).thenReturn(Optional.of(learner));
