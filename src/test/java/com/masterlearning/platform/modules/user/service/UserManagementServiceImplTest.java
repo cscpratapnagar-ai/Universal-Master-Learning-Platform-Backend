@@ -452,7 +452,7 @@ class UserManagementServiceImplTest {
         when(learner.getCode()).thenReturn("LEARNER");
         UUID id = UUID.randomUUID();
         when(users.findById(id)).thenReturn(Optional.of(target));
-        when(roles.findByCode("LEARNER")).thenReturn(Optional.of(learner));
+        lenient().when(roles.findByCode("LEARNER")).thenReturn(Optional.of(learner));
         when(roles.findByCode("UNKNOWN_ROLE")).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class,
