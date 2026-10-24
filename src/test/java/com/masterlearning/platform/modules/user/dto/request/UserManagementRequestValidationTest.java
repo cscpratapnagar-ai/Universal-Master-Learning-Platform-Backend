@@ -49,6 +49,19 @@ class UserManagementRequestValidationTest {
     }
 
     @Test
+    void rejectsBlankRoleCode() {
+        assertFalse(validator.validate(new UpdateUserRolesRequest(Set.of("  "))).isEmpty());
+    }
+
+    @Test
+    void rejectsNullRoleCodeInsideRoleSet() {
+        Set<String> roles = new java.util.HashSet<>();
+        roles.add(null);
+
+        assertFalse(validator.validate(new UpdateUserRolesRequest(roles)).isEmpty());
+    }
+
+    @Test
     void acceptsNonEmptyRoleSet() {
         assertTrue(validator.validate(new UpdateUserRolesRequest(Set.of("TEACHER"))).isEmpty());
     }
