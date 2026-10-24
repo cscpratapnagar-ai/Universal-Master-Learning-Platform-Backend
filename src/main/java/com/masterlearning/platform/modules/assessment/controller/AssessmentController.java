@@ -51,7 +51,7 @@ public class AssessmentController {
     }
 
     @PostMapping("/courses/{courseId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER','QUESTION_SETTER')")
     @Transactional
     public ApiResponse<Map<String,Object>> createCourseAssessment(@PathVariable UUID courseId,
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
@@ -62,7 +62,7 @@ public class AssessmentController {
     }
 
     @PostMapping("/modules/{moduleId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER','QUESTION_SETTER')")
     @Transactional
     public ApiResponse<Map<String,Object>> createModuleAssessment(@PathVariable UUID moduleId,
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
@@ -73,7 +73,7 @@ public class AssessmentController {
     }
 
     @PostMapping("/lessons/{lessonId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER','QUESTION_SETTER')")
     @Transactional
     public ApiResponse<Map<String,Object>> createLessonAssessment(@PathVariable UUID lessonId,
                                                                     @Valid @RequestBody CreateAssessmentRequest request) {
@@ -87,7 +87,7 @@ public class AssessmentController {
     }
 
     @PutMapping("/{assessmentId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER','QUESTION_SETTER')")
     @Transactional
     public ApiResponse<Map<String,Object>> updateAssessment(@PathVariable UUID assessmentId,
                                                               @Valid @RequestBody UpdateAssessmentRequest request) {
@@ -105,7 +105,7 @@ public class AssessmentController {
     }
 
     @PutMapping("/{assessmentId}/questions/{questionId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER','QUESTION_SETTER')")
     @Transactional
     public ApiResponse<Map<String,Object>> updateQuestion(@PathVariable UUID assessmentId,
                                                             @PathVariable UUID questionId,
@@ -135,7 +135,7 @@ public class AssessmentController {
     }
 
     @GetMapping("/courses/{courseId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER','QUESTION_SETTER')")
     @Transactional(readOnly = true)
     public ApiResponse<java.util.List<Map<String,Object>>> courseAssessments(@PathVariable UUID courseId) {
         Course course = courses.findById(courseId).orElseThrow(() -> new EntityNotFoundException("Course not found"));
@@ -147,7 +147,7 @@ public class AssessmentController {
     }
 
     @GetMapping("/question-bank/courses/{courseId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER','QUESTION_SETTER')")
     @Transactional(readOnly = true)
     public ApiResponse<java.util.List<Map<String,Object>>> questionBank(@PathVariable UUID courseId,
                                                                           @RequestParam(required = false) String difficultyLevel,
@@ -170,7 +170,7 @@ public class AssessmentController {
     }
 
     @PostMapping("/{assessmentId}/questions/{questionId}/reuse")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER','QUESTION_SETTER')")
     @Transactional
     public ApiResponse<Map<String,Object>> reuseQuestion(@PathVariable UUID assessmentId, @PathVariable UUID questionId) {
         Assessment target = assessments.findById(assessmentId).orElseThrow(() -> new EntityNotFoundException("Assessment not found"));
@@ -188,7 +188,7 @@ public class AssessmentController {
     private int maxAttempts(CreateAssessmentRequest request) { return request.maxAttempts() == null ? 3 : request.maxAttempts(); }
 
     @PostMapping("/{assessmentId}/questions")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER','QUESTION_SETTER')")
     @Transactional
     public ApiResponse<Map<String,Object>> question(@PathVariable UUID assessmentId,
                                                      @Valid @RequestBody CreateQuestionRequest request) {
