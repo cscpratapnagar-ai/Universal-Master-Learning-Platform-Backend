@@ -50,6 +50,18 @@ class UserManagementServiceImplTest {
     }
 
     @Test
+    void rejectsUpdatingRolesForUnknownUserWithoutResolvingRoles() {
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> service.updateRoles(id, new UpdateUserRolesRequest(Set.of("LEARNER"))));
+
+        verifyNoInteractions(roles);
+        verify(users, never()).save(any());
+    }
+
+    @Test
     void rejectsChangingOwnAccountStatus() {
         User currentUser = new User("admin@example.com", "hash", "Admin", "User");
         UUID id = UUID.randomUUID();
