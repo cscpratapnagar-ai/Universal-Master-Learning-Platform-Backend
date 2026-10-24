@@ -426,6 +426,24 @@ class UserManagementServiceImplTest {
 
 
     @Test
+    void rejectsMixedValidAndUnknownRolesWithoutPartiallyUpdatingUser() {
+        User target = new User("learner@example.com", "hash", "Learner", "User");
+        Role learner = mock(Role.class);
+        when(learner.getCode()).thenReturn("LEARNER");
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.of(target));
+        when(roles.findByCode("LEARNER")).thenReturn(Optional.of(learner));
+        when(roles.findByCode("UNKNOWN_ROLE")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> service.updateRoles(id,
+                        new UpdateUserRolesRequest(Set.of("LEARNER", "UNKNOWN_ROLE"))));
+
+        assertTrue(target.getRoles().isEmpty());
+        verify(users, never()).save(any());
+    }
+
+    @Test
     void rejectsUnknownRoleCodeWithoutSavingUser() {
         User target = new User("learner@example.com", "hash", "Learner", "User");
         UUID id = UUID.randomUUID();
