@@ -1,6 +1,7 @@
 package com.masterlearning.platform.common.exception;
 
 import com.masterlearning.platform.common.api.ApiErrorResponse;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,6 +89,19 @@ public class GlobalExceptionHandler {
                 ApiErrorResponse.of(
                         ErrorCode.BAD_REQUEST.name(),
                         "Malformed request body",
+                        Map.of()
+                )
+        );
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleEntityNotFound(
+            EntityNotFoundException exception
+    ) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiErrorResponse.of(
+                        ErrorCode.BAD_REQUEST.name(),
+                        exception.getMessage() == null ? "Resource not found" : exception.getMessage(),
                         Map.of()
                 )
         );
