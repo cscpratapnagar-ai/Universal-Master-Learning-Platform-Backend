@@ -123,6 +123,21 @@ class UserManagementServiceImplTest {
     }
 
     @Test
+    void rejectsChangingOwnRolesWhenEmailDiffersOnlyByCase() {
+        User currentUser = new User("admin@example.com", "hash", "Admin", "User");
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.of(currentUser));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("ADMIN@EXAMPLE.COM", "test"));
+
+        assertThrows(ForbiddenException.class,
+                () -> service.updateRoles(id, new UpdateUserRolesRequest(Set.of("LEARNER"))));
+
+        verifyNoInteractions(roles);
+        verify(users, never()).save(any());
+    }
+
+    @Test
     void allowsDisablingSuperAdminWhenAnotherActiveSuperAdminRemains() {
         User target = new User("other-admin@example.com", "hash", "Other", "Admin");
         Role superAdmin = mock(Role.class);
