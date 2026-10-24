@@ -239,6 +239,21 @@ class UserManagementServiceImplTest {
     }
 
     @Test
+    void enablingAlreadyEnabledRegularUserKeepsAccountEnabled() {
+        User target = new User("learner@example.com", "hash", "Learner", "User");
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.of(target));
+        when(users.save(target)).thenReturn(target);
+
+        service.updateStatus(id, new UpdateUserStatusRequest(true));
+
+        assertTrue(target.isEnabled());
+        verify(users).save(target);
+        verify(roles, never()).findByCodeForUpdate("SUPER_ADMIN");
+        verify(users, never()).countActiveSuperAdmins();
+    }
+
+    @Test
     void allowsEnablingAnotherUsersDisabledAccount() {
         User target = new User("learner@example.com", "hash", "Learner", "User");
         target.disable();
