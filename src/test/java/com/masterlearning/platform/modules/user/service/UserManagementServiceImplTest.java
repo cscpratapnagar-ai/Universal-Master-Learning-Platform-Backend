@@ -50,6 +50,16 @@ class UserManagementServiceImplTest {
     }
 
     @Test
+    void rejectsReadingUnknownUserWithoutMappingResponse() {
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.getById(id));
+
+        verifyNoInteractions(mapper);
+    }
+
+    @Test
     void rejectsUpdatingStatusForUnknownUserWithoutSaving() {
         UUID id = UUID.randomUUID();
         when(users.findById(id)).thenReturn(Optional.empty());
