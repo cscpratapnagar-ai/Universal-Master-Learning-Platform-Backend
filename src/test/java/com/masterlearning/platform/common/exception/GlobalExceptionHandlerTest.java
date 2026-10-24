@@ -29,6 +29,18 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void mapsEntityNotFoundToHttp404() {
+        var response = handler.handleEntityNotFound(
+                new jakarta.persistence.EntityNotFoundException("Certificate not found"));
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        ApiErrorResponse body = response.getBody();
+        assertTrue(body != null);
+        assertFalse(body.success());
+        assertEquals("Certificate not found", body.message());
+    }
+
+    @Test
     void mapsIllegalArgumentExceptionToHttp400() {
         var response = handler.handleIllegalArgument(
                 new IllegalArgumentException("Invalid availability timezone"));
