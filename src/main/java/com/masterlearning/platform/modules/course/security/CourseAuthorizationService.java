@@ -13,7 +13,7 @@ import java.util.UUID;
 @Component
 public class CourseAuthorizationService {
 
-    public boolean isTeacherOrInstructor() {
+    public boolean isCourseAuthorOrQuestionSetter() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {
             return false;
@@ -48,7 +48,7 @@ public class CourseAuthorizationService {
             return hasOrganizationAccess(course);
         }
 
-        if (!isTeacherOrInstructor() || course.getCreatedBy() == null) {
+        if (!isCourseAuthorOrQuestionSetter() || course.getCreatedBy() == null) {
             return false;
         }
 
