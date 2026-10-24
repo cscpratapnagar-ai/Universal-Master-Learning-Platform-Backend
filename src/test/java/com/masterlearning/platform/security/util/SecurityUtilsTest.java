@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,7 +25,7 @@ class SecurityUtilsTest {
         String email = "learner@example.com";
         var principal = new CurrentUserPrincipal(userId, email);
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(principal, null));
+                UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of()));
 
         assertEquals(userId, SecurityUtils.getCurrentUserId());
         assertEquals(email, SecurityUtils.getCurrentUserEmail());
@@ -41,7 +42,7 @@ class SecurityUtilsTest {
     @Test
     void rejectsAuthenticationWithUnexpectedPrincipalType() {
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("learner@example.com", null));
+                UsernamePasswordAuthenticationToken.authenticated("learner@example.com", null, List.of()));
 
         assertThrows(IllegalStateException.class, SecurityUtils::getCurrentUserId);
         assertThrows(IllegalStateException.class, SecurityUtils::getCurrentUserEmail);
