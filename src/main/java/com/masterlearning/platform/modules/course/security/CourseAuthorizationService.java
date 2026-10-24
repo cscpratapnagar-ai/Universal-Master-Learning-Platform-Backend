@@ -20,7 +20,8 @@ public class CourseAuthorizationService {
         }
         return authentication.getAuthorities().stream().anyMatch(authority ->
                 "ROLE_TEACHER".equals(authority.getAuthority())
-                        || "ROLE_INSTRUCTOR".equals(authority.getAuthority()));
+                        || "ROLE_INSTRUCTOR".equals(authority.getAuthority())
+                        || "ROLE_QUESTION_SETTER".equals(authority.getAuthority()));
     }
 
     private final OrganizationAuthorizationService organizationAuthorization;
