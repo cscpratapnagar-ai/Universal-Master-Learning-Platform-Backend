@@ -26,3 +26,7 @@ WHERE NOT EXISTS (SELECT 1 FROM roles WHERE code = 'FINANCE');
 INSERT INTO roles (id, code, name, description, system_role, created_at, updated_at, version)
 SELECT '10000000-0000-0000-0000-000000000014', 'SUPPORT', 'Support / Helpdesk', 'Assist users with support requests', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM roles WHERE code = 'SUPPORT');
+
+INSERT INTO roles (id, code, name, description, system_role, created_at, updated_at, version)
+SELECT '10000000-0000-0000-0000-000000000015', 'PRIVATE_TEACHER', 'Private Teacher / Tutor', 'Private tutoring and booking access', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM roles WHERE code = 'PRIVATE_TEACHER');
