@@ -237,6 +237,26 @@ class UserManagementServiceImplTest {
 
 
     @Test
+    void returnsAllUsersWhenNoQueryOrStatusFilterIsProvided() {
+        User first = new User("first@example.com", "hash", "First", "User");
+        User second = new User("second@example.com", "hash", "Second", "User");
+        second.disable();
+        when(users.findAllWithRoles()).thenReturn(java.util.List.of(first, second));
+        when(mapper.toResponse(first)).thenReturn(new UserResponse(
+                UUID.randomUUID(), first.getEmail(), first.getFirstName(),
+                first.getLastName(), true, Set.of("LEARNER")));
+        when(mapper.toResponse(second)).thenReturn(new UserResponse(
+                UUID.randomUUID(), second.getEmail(), second.getFirstName(),
+                second.getLastName(), false, Set.of("LEARNER")));
+
+        var result = service.getAll(null, null);
+
+        assertEquals(2, result.size());
+        verify(mapper).toResponse(first);
+        verify(mapper).toResponse(second);
+    }
+
+    @Test
     void filtersUsersByCaseInsensitiveQueryAndEnabledStatus() {
         User enabledMatch = new User("teacher@example.com", "hash", "Mira", "Patel");
         User disabledMatch = new User("former@example.com", "hash", "Mira", "Shah");
