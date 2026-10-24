@@ -70,6 +70,30 @@ class UserManagementHttpSecurityTest {
 
     @Test
     @WithMockUser(username = "admin@example.com", roles = "SUPER_ADMIN")
+    void rejectsBlankRoleCodeAtHttpBoundary() throws Exception {
+        mockMvc.perform(put("/api/v1/users/{id}/roles", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\":[\"   \" ]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors.roles").exists());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@example.com", roles = "SUPER_ADMIN")
+    void rejectsNullRoleCodeAtHttpBoundary() throws Exception {
+        mockMvc.perform(put("/api/v1/users/{id}/roles", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\":[null]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors.roles").exists());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@example.com", roles = "SUPER_ADMIN")
     void rejectsNullEnabledStatusAtHttpBoundary() throws Exception {
         mockMvc.perform(put("/api/v1/users/{id}/status", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
