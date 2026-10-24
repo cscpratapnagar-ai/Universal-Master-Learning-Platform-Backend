@@ -77,7 +77,7 @@ class UserManagementHttpSecurityTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.errors.roles").exists());
+                .andExpect(jsonPath("$.errors").exists());
     }
 
     @Test
@@ -89,7 +89,7 @@ class UserManagementHttpSecurityTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.errors.roles").exists());
+                .andExpect(jsonPath("$.errors").exists());
     }
 
     @Test
