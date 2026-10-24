@@ -48,14 +48,14 @@ public class AdminLearningCatalogController {
     }
 
     @GetMapping("/catalog")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','INSTRUCTOR','TEACHER','QUESTION_SETTER')")
     @Transactional(readOnly = true)
     public ApiResponse<List<Map<String, Object>>> catalog() {
         boolean superAdmin = SecurityContextHolder.getContext().getAuthentication() != null
                 && SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
                 .anyMatch(a -> "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
 
-        var catalogCourses = authorization.isTeacherOrInstructor()
+        var catalogCourses = authorization.isCourseAuthorOrQuestionSetter()
                 ? courses.findByCreatedById(SecurityUtils.getCurrentUserId())
                 : superAdmin
                 ? courses.findAll()
