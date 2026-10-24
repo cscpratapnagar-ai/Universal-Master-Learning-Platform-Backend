@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.http.ResponseEntity;
@@ -113,6 +114,19 @@ public class GlobalExceptionHandler {
                 ApiErrorResponse.of(
                         ErrorCode.BAD_REQUEST.name(),
                         exception.getMessage(),
+                        Map.of()
+                )
+        );
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+            AccessDeniedException exception
+    ) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ApiErrorResponse.of(
+                        ErrorCode.FORBIDDEN.name(),
+                        "You do not have permission to access this resource",
                         Map.of()
                 )
         );
