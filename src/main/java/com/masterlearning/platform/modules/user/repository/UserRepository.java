@@ -15,6 +15,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmailIgnoreCase(String email);
 
+    @Query("select distinct u from User u join u.roles r where u.enabled = true and upper(r.code) = upper(:roleCode) order by u.email")
+    List<User> findEnabledUsersByRoleCode(@org.springframework.data.repository.query.Param("roleCode") String roleCode);
+
     @Query("""
             select distinct u
             from User u
