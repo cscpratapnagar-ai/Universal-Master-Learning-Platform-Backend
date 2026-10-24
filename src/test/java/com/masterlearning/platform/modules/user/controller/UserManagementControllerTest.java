@@ -1,6 +1,8 @@
 package com.masterlearning.platform.modules.user.controller;
 
 import com.masterlearning.platform.common.api.ApiResponse;
+import com.masterlearning.platform.modules.user.dto.request.UpdateUserRolesRequest;
+import com.masterlearning.platform.modules.user.dto.request.UpdateUserStatusRequest;
 import com.masterlearning.platform.modules.user.dto.response.UserResponse;
 import com.masterlearning.platform.modules.user.service.UserManagementService;
 import org.junit.jupiter.api.Test;
@@ -52,4 +54,55 @@ class UserManagementControllerTest {
         verify(service).getAll(null, null);
         verifyNoMoreInteractions(service);
     }
+
+    @Test
+    void getByIdReturnsSuccessfulApiResponse() {
+        UUID id = UUID.randomUUID();
+        UserResponse user = new UserResponse(
+                id, "teacher@example.com", "Mira", "Patel", true, Set.of("TEACHER"));
+        when(service.getById(id)).thenReturn(user);
+
+        ApiResponse<UserResponse> response = controller.getById(id);
+
+        assertTrue(response.success());
+        assertEquals("User retrieved successfully", response.message());
+        assertEquals(user, response.data());
+        verify(service).getById(id);
+        verifyNoMoreInteractions(service);
+    }
+
+    @Test
+    void updateStatusDelegatesRequestAndReturnsSuccessfulResponse() {
+        UUID id = UUID.randomUUID();
+        UpdateUserStatusRequest request = new UpdateUserStatusRequest(false);
+        UserResponse user = new UserResponse(
+                id, "teacher@example.com", "Mira", "Patel", false, Set.of("TEACHER"));
+        when(service.updateStatus(id, request)).thenReturn(user);
+
+        ApiResponse<UserResponse> response = controller.updateStatus(id, request);
+
+        assertTrue(response.success());
+        assertEquals("User status updated successfully", response.message());
+        assertEquals(user, response.data());
+        verify(service).updateStatus(id, request);
+        verifyNoMoreInteractions(service);
+    }
+
+    @Test
+    void updateRolesDelegatesRequestAndReturnsSuccessfulResponse() {
+        UUID id = UUID.randomUUID();
+        UpdateUserRolesRequest request = new UpdateUserRolesRequest(Set.of("TEACHER"));
+        UserResponse user = new UserResponse(
+                id, "teacher@example.com", "Mira", "Patel", true, Set.of("TEACHER"));
+        when(service.updateRoles(id, request)).thenReturn(user);
+
+        ApiResponse<UserResponse> response = controller.updateRoles(id, request);
+
+        assertTrue(response.success());
+        assertEquals("User roles updated successfully", response.message());
+        assertEquals(user, response.data());
+        verify(service).updateRoles(id, request);
+        verifyNoMoreInteractions(service);
+    }
+
 }
