@@ -1,6 +1,7 @@
 package com.masterlearning.platform.modules.user.controller;
 
 import com.masterlearning.platform.common.api.ApiResponse;
+import com.masterlearning.platform.modules.user.dto.request.CreateUserRequest;
 import com.masterlearning.platform.modules.user.dto.request.UpdateUserRolesRequest;
 import com.masterlearning.platform.modules.user.dto.request.UpdateUserStatusRequest;
 import com.masterlearning.platform.modules.user.dto.response.UserResponse;
@@ -21,6 +22,12 @@ public class UserManagementController {
 
     public UserManagementController(UserManagementService service) {
         this.service = service;
+    }
+
+    @PostMapping
+    @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+    public ApiResponse<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
+        return ApiResponse.success("User account created successfully", service.createUser(request));
     }
 
     @GetMapping
