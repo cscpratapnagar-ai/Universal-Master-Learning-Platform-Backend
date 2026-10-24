@@ -7,6 +7,7 @@ import com.masterlearning.platform.modules.identity.repository.RoleRepository;
 import com.masterlearning.platform.modules.user.dto.request.UpdateUserRolesRequest;
 import com.masterlearning.platform.modules.user.dto.request.UpdateUserStatusRequest;
 import com.masterlearning.platform.modules.user.entity.User;
+import com.masterlearning.platform.modules.user.dto.response.UserResponse;
 import com.masterlearning.platform.modules.user.mapper.UserMapper;
 import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.modules.user.service.impl.UserManagementServiceImpl;
@@ -199,6 +200,34 @@ class UserManagementServiceImplTest {
         verify(roles).findByCode("LEARNER");
         verify(users).save(target);
     }
+
+
+    @Test
+    void filtersUsersByCaseInsensitiveQueryAndEnabledStatus() {
+        User enabledMatch = new User("teacher@example.com", "hash", "Mira", "Patel");
+        User disabledMatch = new User("former@example.com", "hash", "Mira", "Shah");
+        disabledMatch.disable();
+        User unrelated = new User("learner@example.com", "hash", "Ravi", "Desai");
+        when(users.findAllWithRoles()).thenReturn(java.util.List.of(enabledMatch, disabledMatch, unrelated));
+
+        UserResponse enabledResponse = new UserResponse(
+                UUID.randomUUID(), enabledMatch.getEmail(), enabledMatch.getFirstName(),
+                enabledMatch.getLastName(), true, Set.of("TEACHER"));
+        UserResponse disabledResponse = new UserResponse(
+                UUID.randomUUID(), disabledMatch.getEmail(), disabledMatch.getFirstName(),
+                disabledMatch.getLastName(), false, Set.of("LEARNER"));
+        when(mapper.toResponse(enabledMatch)).thenReturn(enabledResponse);
+        when(mapper.toResponse(disabledMatch)).thenReturn(disabledResponse);
+
+        var result = service.getAll("  MIRA  ", true);
+
+        assertEquals(1, result.size());
+        assertEquals("teacher@example.com", result.get(0).email());
+        verify(mapper).toResponse(enabledMatch);
+        verify(mapper, never()).toResponse(disabledMatch);
+        verify(mapper, never()).toResponse(unrelated);
+    }
+
 
     @Test
     void rejectsUnknownRoleCodeWithoutSavingUser() {
