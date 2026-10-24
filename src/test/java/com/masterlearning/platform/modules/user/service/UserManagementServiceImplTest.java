@@ -4,6 +4,7 @@ import com.masterlearning.platform.common.exception.ForbiddenException;
 import com.masterlearning.platform.common.exception.ResourceNotFoundException;
 import com.masterlearning.platform.modules.identity.entity.Role;
 import com.masterlearning.platform.modules.identity.repository.RoleRepository;
+import com.masterlearning.platform.modules.user.dto.request.CreateUserRequest;
 import com.masterlearning.platform.modules.user.dto.request.UpdateUserRolesRequest;
 import com.masterlearning.platform.modules.user.dto.request.UpdateUserStatusRequest;
 import com.masterlearning.platform.modules.user.entity.User;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Optional;
@@ -34,12 +36,13 @@ class UserManagementServiceImplTest {
     @Mock private UserRepository users;
     @Mock private RoleRepository roles;
     @Mock private UserMapper mapper;
+    @Mock private PasswordEncoder passwordEncoder;
 
     private UserManagementServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new UserManagementServiceImpl(users, roles, mapper);
+        service = new UserManagementServiceImpl(users, roles, mapper, passwordEncoder);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("admin@example.com", "test"));
     }
@@ -47,6 +50,41 @@ class UserManagementServiceImplTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void createsAccountWithEncodedPasswordAndApprovedRole() {
+        Role examiner = mock(Role.class);
+        when(examiner.getCode()).thenReturn("EXAMINER");
+        when(users.existsByEmailIgnoreCase("examiner@example.com")).thenReturn(false);
+        when(roles.findByCode("EXAMINER")).thenReturn(Optional.of(examiner));
+        when(passwordEncoder.encode("A-Strong-Temporary-Password!")).thenReturn("bcrypt-hash");
+        when(users.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(mapper.toResponse(any(User.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
+            return new UserResponse(UUID.randomUUID(), user.getEmail(), user.getFirstName(),
+                    user.getLastName(), user.isEnabled(), Set.of("EXAMINER"));
+        });
+
+        UserResponse response = service.createUser(new CreateUserRequest(
+                " Examiner@Example.com ", "A-Strong-Temporary-Password!",
+                "Exam", "Tester", Set.of(" examiner ")));
+
+        assertEquals("examiner@example.com", response.email());
+        assertTrue(response.roles().contains("EXAMINER"));
+        verify(passwordEncoder).encode("A-Strong-Temporary-Password!");
+        verify(users).save(argThat(user -> user.getPasswordHash().equals("bcrypt-hash")
+                && user.getRoles().stream().anyMatch(role -> "EXAMINER".equals(role.getCode()))));
+    }
+
+    @Test
+    void refusesCreatingAccountWithProtectedSuperAdminRole() {
+        when(users.existsByEmailIgnoreCase("newadmin@example.com")).thenReturn(false);
+        assertThrows(ForbiddenException.class, () -> service.createUser(new CreateUserRequest(
+                "newadmin@example.com", "A-Strong-Temporary-Password!",
+                "New", "Admin", Set.of("SUPER_ADMIN"))));
+        verify(users, never()).save(any());
+        verify(passwordEncoder, never()).encode(any());
     }
 
     @Test
