@@ -150,10 +150,13 @@ class UserManagementServiceImplTest {
     void rejectsRemovingProtectedSuperAdminRoleEvenWhenAnotherActiveAdminRemains() {
         User target = new User("other-admin@example.com", "hash", "Other", "Admin");
         Role superAdmin = mock(Role.class);
+        Role learner = mock(Role.class);
         when(superAdmin.getCode()).thenReturn("SUPER_ADMIN");
+        when(learner.getCode()).thenReturn("LEARNER");
         target.assignRole(superAdmin);
         UUID id = UUID.randomUUID();
         when(users.findById(id)).thenReturn(Optional.of(target));
+        when(roles.findByCode("LEARNER")).thenReturn(Optional.of(learner));
 
         assertThrows(ForbiddenException.class,
                 () -> service.updateRoles(id, new UpdateUserRolesRequest(Set.of("LEARNER"))));
