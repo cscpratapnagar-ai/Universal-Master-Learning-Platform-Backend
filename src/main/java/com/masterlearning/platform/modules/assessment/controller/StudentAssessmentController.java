@@ -74,6 +74,32 @@ public class StudentAssessmentController {
         return ApiResponse.success("Assessment retrieved", assessmentView(assessment));
     }
 
+    @GetMapping("/{assessmentId}/attempts")
+    @Transactional(readOnly = true)
+    public ApiResponse<List<Map<String,Object>>> attemptHistory(@PathVariable UUID assessmentId) {
+        var assessment = assessments.findById(assessmentId)
+                .orElseThrow(() -> new EntityNotFoundException("Assessment not found"));
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        requireEnrollment(assessment.getCourse().getId());
+
+        List<Map<String,Object>> history = attempts
+                .findByAssessmentIdAndUserIdOrderByAttemptNumberDesc(assessmentId, currentUserId)
+                .stream()
+                .map(attempt -> {
+                    Map<String,Object> item = new LinkedHashMap<>();
+                    item.put("attemptId", attempt.getId());
+                    item.put("attemptNumber", attempt.getAttemptNumber());
+                    item.put("score", attempt.getScore());
+                    item.put("passed", attempt.isPassed());
+                    item.put("masteryLevel", attempt.getMasteryLevel());
+                    item.put("submittedAt", attempt.getSubmittedAt());
+                    return item;
+                })
+                .toList();
+
+        return ApiResponse.success("Assessment attempt history retrieved", history);
+    }
+
     @PostMapping("/{assessmentId}/submit")
     @Transactional
     public ApiResponse<AssessmentResultResponse> submit(@PathVariable UUID assessmentId,
