@@ -33,6 +33,14 @@ class UserManagementHttpSecurityTest {
     }
 
     @Test
+    void rejectsCurrentUserRequestWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/users/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
     @WithMockUser(username = "teacher@example.com", roles = "TEACHER")
     void forbidsUserManagementRequestForNonSuperAdmin() throws Exception {
         mockMvc.perform(get("/api/v1/users"))
