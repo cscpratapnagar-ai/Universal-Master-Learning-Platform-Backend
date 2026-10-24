@@ -257,6 +257,30 @@ class UserManagementServiceImplTest {
     }
 
     @Test
+    void filtersUsersByEmailAndLastNameCaseInsensitively() {
+        User emailMatch = new User("special.teacher@example.com", "hash", "Asha", "Patel");
+        User lastNameMatch = new User("another@example.com", "hash", "Ravi", "Mehta");
+        User unrelated = new User("learner@example.com", "hash", "Nita", "Desai");
+        when(users.findAllWithRoles()).thenReturn(
+                java.util.List.of(emailMatch, lastNameMatch, unrelated));
+        when(mapper.toResponse(emailMatch)).thenReturn(new UserResponse(
+                UUID.randomUUID(), emailMatch.getEmail(), emailMatch.getFirstName(),
+                emailMatch.getLastName(), true, Set.of("TEACHER")));
+        when(mapper.toResponse(lastNameMatch)).thenReturn(new UserResponse(
+                UUID.randomUUID(), lastNameMatch.getEmail(), lastNameMatch.getFirstName(),
+                lastNameMatch.getLastName(), true, Set.of("LEARNER")));
+
+        var emailResults = service.getAll("SPECIAL.TEACHER", null);
+        var lastNameResults = service.getAll("MEHTA", null);
+
+        assertEquals(1, emailResults.size());
+        assertEquals("special.teacher@example.com", emailResults.get(0).email());
+        assertEquals(1, lastNameResults.size());
+        assertEquals("another@example.com", lastNameResults.get(0).email());
+        verify(mapper, never()).toResponse(unrelated);
+    }
+
+    @Test
     void filtersUsersByCaseInsensitiveQueryAndEnabledStatus() {
         User enabledMatch = new User("teacher@example.com", "hash", "Mira", "Patel");
         User disabledMatch = new User("former@example.com", "hash", "Mira", "Shah");
