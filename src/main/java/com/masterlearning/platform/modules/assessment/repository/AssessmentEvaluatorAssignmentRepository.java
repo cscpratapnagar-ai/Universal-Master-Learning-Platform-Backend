@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public interface AssessmentEvaluatorAssignmentRepository extends JpaRepository<AssessmentEvaluatorAssignment, UUID> {
     boolean existsByAssessmentIdAndEvaluatorId(UUID assessmentId, UUID evaluatorId);
+    List<AssessmentEvaluatorAssignment> findByAssessmentId(UUID assessmentId);
     List<AssessmentEvaluatorAssignment> findByEvaluatorIdOrderByCreatedAtDesc(UUID evaluatorId);
 
     @Query("select a from AssessmentEvaluatorAssignment a where a.evaluator.id = :evaluatorId and a.assessment.id = :assessmentId")
