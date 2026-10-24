@@ -18,5 +18,10 @@ public class AssessmentAnswer extends BaseEntity {
     public AssessmentAnswer(AssessmentAttempt attempt, Question question, QuestionOption selectedOption, boolean correct, int pointsAwarded){
         this.attempt=attempt; this.question=question; this.selectedOption=selectedOption; this.correct=correct; this.pointsAwarded=pointsAwarded;
     }
-    public UUID getId(){return id;} public boolean isCorrect(){return correct;} public int getPointsAwarded(){return pointsAwarded;}
+    public UUID getId(){return id;}
+    public AssessmentAttempt getAttempt(){return attempt;}
+    public Question getQuestion(){return question;}
+    public QuestionOption getSelectedOption(){return selectedOption;}
+    public boolean isCorrect(){return correct;}
+    public int getPointsAwarded(){return pointsAwarded;}
 }
