@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
@@ -26,7 +27,7 @@ class UserManagementControllerSecurityTest {
 
     @Test
     void deniesUnauthenticatedInvocationOfProtectedUserManagementMethod() {
-        assertThrows(AccessDeniedException.class, () -> controller.getAll(null, null));
+        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> controller.getAll(null, null));
         verifyNoInteractions(service);
     }
 
