@@ -253,6 +253,24 @@ class UserManagementServiceImplTest {
     }
 
     @Test
+    void updatingUserWithSameAssignableRolePreservesRoleSet() {
+        User target = new User("learner@example.com", "hash", "Learner", "User");
+        Role learner = mock(Role.class);
+        when(learner.getCode()).thenReturn("LEARNER");
+        target.assignRole(learner);
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.of(target));
+        when(roles.findByCode("LEARNER")).thenReturn(Optional.of(learner));
+        when(users.save(target)).thenReturn(target);
+
+        service.updateRoles(id, new UpdateUserRolesRequest(Set.of("LEARNER")));
+
+        assertEquals(1, target.getRoles().size());
+        assertTrue(target.getRoles().contains(learner));
+        verify(users).save(target);
+    }
+
+    @Test
     void normalizesAssignableRoleCodesBeforeResolvingThem() {
         User target = new User("learner@example.com", "hash", "Learner", "User");
         Role learner = mock(Role.class);
