@@ -50,6 +50,18 @@ class UserManagementServiceImplTest {
     }
 
     @Test
+    void rejectsUpdatingStatusForUnknownUserWithoutSaving() {
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> service.updateStatus(id, new UpdateUserStatusRequest(false)));
+
+        verify(users, never()).save(any());
+        verifyNoInteractions(roles);
+    }
+
+    @Test
     void rejectsUpdatingRolesForUnknownUserWithoutResolvingRoles() {
         UUID id = UUID.randomUUID();
         when(users.findById(id)).thenReturn(Optional.empty());
