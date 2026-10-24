@@ -12,6 +12,7 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
     Optional<AssessmentAttempt> findTopByAssessmentIdAndUserIdAndPassedTrueOrderBySubmittedAtDesc(UUID assessmentId, UUID userId);
     long countByAssessmentIdAndUserId(UUID assessmentId, UUID userId);
     List<AssessmentAttempt> findByAssessmentIdAndUserIdOrderByAttemptNumberDesc(UUID assessmentId, UUID userId);
+    List<AssessmentAttempt> findByAssessmentIdOrderBySubmittedAtDesc(UUID assessmentId);
 
     @Query("select a from AssessmentAttempt a where a.assessment.course.id = :courseId and a.user.id = :userId order by a.submittedAt desc")
     List<AssessmentAttempt> findByCourseIdAndUserIdOrderBySubmittedAtDesc(
