@@ -96,6 +96,20 @@ class UserManagementServiceImplTest {
     }
 
     @Test
+    void rejectsChangingOwnAccountStatusWhenEmailDiffersOnlyByCase() {
+        User currentUser = new User("admin@example.com", "hash", "Admin", "User");
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.of(currentUser));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("ADMIN@EXAMPLE.COM", "test"));
+
+        assertThrows(ForbiddenException.class,
+                () -> service.updateStatus(id, new UpdateUserStatusRequest(false)));
+
+        verify(users, never()).save(any());
+    }
+
+    @Test
     void rejectsChangingOwnRoles() {
         User currentUser = new User("admin@example.com", "hash", "Admin", "User");
         UUID id = UUID.randomUUID();
