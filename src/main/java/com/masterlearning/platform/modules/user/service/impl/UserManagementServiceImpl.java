@@ -1,9 +1,11 @@
 package com.masterlearning.platform.modules.user.service.impl;
 
+import com.masterlearning.platform.common.exception.ConflictException;
 import com.masterlearning.platform.common.exception.ForbiddenException;
 import com.masterlearning.platform.common.exception.ResourceNotFoundException;
 import com.masterlearning.platform.modules.identity.entity.Role;
 import com.masterlearning.platform.modules.identity.repository.RoleRepository;
+import com.masterlearning.platform.modules.user.dto.request.CreateUserRequest;
 import com.masterlearning.platform.modules.user.dto.request.UpdateUserRolesRequest;
 import com.masterlearning.platform.modules.user.dto.request.UpdateUserStatusRequest;
 import com.masterlearning.platform.modules.user.dto.response.UserResponse;
@@ -13,6 +15,7 @@ import com.masterlearning.platform.modules.user.repository.UserRepository;
 import com.masterlearning.platform.modules.user.service.UserManagementService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,11 +36,43 @@ public class UserManagementServiceImpl implements UserManagementService {
     private final UserRepository users;
     private final RoleRepository roles;
     private final UserMapper mapper;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserManagementServiceImpl(UserRepository users, RoleRepository roles, UserMapper mapper) {
+    public UserManagementServiceImpl(UserRepository users, RoleRepository roles, UserMapper mapper, PasswordEncoder passwordEncoder) {
         this.users = users;
         this.roles = roles;
         this.mapper = mapper;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @Override
+    public UserResponse createUser(CreateUserRequest request) {
+        String email = request.email().trim().toLowerCase(Locale.ROOT);
+        if (users.existsByEmailIgnoreCase(email)) {
+            throw new ConflictException("An account with this email already exists");
+        }
+
+        Set<String> requestedCodes = request.roles().stream()
+                .map(code -> code.trim().toUpperCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+        if (requestedCodes.isEmpty() || !ASSIGNABLE_ROLE_CODES.containsAll(requestedCodes)) {
+            throw new ForbiddenException("One or more requested roles cannot be assigned through user management");
+        }
+
+        Set<Role> resolvedRoles = requestedCodes.stream()
+                .map(code -> roles.findByCode(code)
+                        .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + code)))
+                .collect(Collectors.toSet());
+
+        User user = new User(
+                email,
+                passwordEncoder.encode(request.temporaryPassword()),
+                request.firstName().trim(),
+                request.lastName() == null || request.lastName().isBlank()
+                        ? null : request.lastName().trim()
+        );
+        user.replaceRoles(resolvedRoles);
+        return mapper.toResponse(users.save(user));
     }
 
     @Override
