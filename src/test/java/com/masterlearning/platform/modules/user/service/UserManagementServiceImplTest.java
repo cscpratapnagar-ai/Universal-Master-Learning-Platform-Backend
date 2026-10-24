@@ -213,11 +213,7 @@ class UserManagementServiceImplTest {
         UserResponse enabledResponse = new UserResponse(
                 UUID.randomUUID(), enabledMatch.getEmail(), enabledMatch.getFirstName(),
                 enabledMatch.getLastName(), true, Set.of("TEACHER"));
-        UserResponse disabledResponse = new UserResponse(
-                UUID.randomUUID(), disabledMatch.getEmail(), disabledMatch.getFirstName(),
-                disabledMatch.getLastName(), false, Set.of("LEARNER"));
         when(mapper.toResponse(enabledMatch)).thenReturn(enabledResponse);
-        when(mapper.toResponse(disabledMatch)).thenReturn(disabledResponse);
 
         var result = service.getAll("  MIRA  ", true);
 
