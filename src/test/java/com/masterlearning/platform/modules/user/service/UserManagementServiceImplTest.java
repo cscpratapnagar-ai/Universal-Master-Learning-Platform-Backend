@@ -205,6 +205,25 @@ class UserManagementServiceImplTest {
 
 
     @Test
+    void disablingAlreadyDisabledSuperAdminDoesNotRunLastAdminGuard() {
+        User target = new User("disabled-admin@example.com", "hash", "Disabled", "Admin");
+        target.disable();
+        Role superAdmin = mock(Role.class);
+        when(superAdmin.getCode()).thenReturn("SUPER_ADMIN");
+        target.assignRole(superAdmin);
+        UUID id = UUID.randomUUID();
+        when(users.findById(id)).thenReturn(Optional.of(target));
+        when(users.save(target)).thenReturn(target);
+
+        service.updateStatus(id, new UpdateUserStatusRequest(false));
+
+        assertFalse(target.isEnabled());
+        verify(roles, never()).findByCodeForUpdate("SUPER_ADMIN");
+        verify(users, never()).countActiveSuperAdmins();
+        verify(users).save(target);
+    }
+
+    @Test
     void allowsEnablingAnotherUsersDisabledAccount() {
         User target = new User("learner@example.com", "hash", "Learner", "User");
         target.disable();
