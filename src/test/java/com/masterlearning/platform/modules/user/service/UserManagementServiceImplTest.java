@@ -257,6 +257,24 @@ class UserManagementServiceImplTest {
     }
 
     @Test
+    void filtersUsersByDisabledStatusWithoutQuery() {
+        User enabledUser = new User("enabled@example.com", "hash", "Enabled", "User");
+        User disabledUser = new User("disabled@example.com", "hash", "Disabled", "User");
+        disabledUser.disable();
+        when(users.findAllWithRoles()).thenReturn(java.util.List.of(enabledUser, disabledUser));
+        when(mapper.toResponse(disabledUser)).thenReturn(new UserResponse(
+                UUID.randomUUID(), disabledUser.getEmail(), disabledUser.getFirstName(),
+                disabledUser.getLastName(), false, Set.of("LEARNER")));
+
+        var result = service.getAll(null, false);
+
+        assertEquals(1, result.size());
+        assertEquals("disabled@example.com", result.get(0).email());
+        verify(mapper).toResponse(disabledUser);
+        verify(mapper, never()).toResponse(enabledUser);
+    }
+
+    @Test
     void filtersUsersByEnabledStatusWithoutQuery() {
         User enabledUser = new User("enabled@example.com", "hash", "Enabled", "User");
         User disabledUser = new User("disabled@example.com", "hash", "Disabled", "User");
