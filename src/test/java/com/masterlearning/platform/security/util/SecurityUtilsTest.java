@@ -40,6 +40,16 @@ class SecurityUtilsTest {
     }
 
     @Test
+    void rejectsUnauthenticatedTokenEvenWhenPrincipalTypeIsValid() {
+        var principal = new CurrentUserPrincipal(UUID.randomUUID(), "learner@example.com");
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.unauthenticated(principal, null));
+
+        assertThrows(IllegalStateException.class, SecurityUtils::getCurrentUserId);
+        assertThrows(IllegalStateException.class, SecurityUtils::getCurrentUserEmail);
+    }
+
+    @Test
     void rejectsAuthenticationWithUnexpectedPrincipalType() {
         SecurityContextHolder.getContext().setAuthentication(
                 UsernamePasswordAuthenticationToken.authenticated("learner@example.com", null, List.of()));
